@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useUpload } from "@/context/UploadContext";
 import { useRouter } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
 import { track } from "@/lib/track";
 
 // Constants
@@ -17,6 +18,15 @@ export default function UploadPage() {
   const [dragActive, setDragActive] = useState(false);
   const { setFile } = useUpload();
   const router = useRouter();
+  const { status } = useSession();
+  const isAuthLoading = status === "loading";
+  const isSignedIn = status === "authenticated";
+
+  const requestSignIn = () => {
+    setError("Please sign in before uploading a PDF.");
+    track("upload_signin_required");
+    void signIn("google", { callbackUrl: "/upload" });
+  };
 
   // Validate PDF by checking file header
   const validatePdfHeader = async (file: File): Promise<boolean> => {
@@ -52,6 +62,16 @@ export default function UploadPage() {
   };
 
   const handleFileSelect = async (selectedFile: File) => {
+    if (isAuthLoading) {
+      setError("Checking your sign-in status. Please try again in a moment.");
+      return;
+    }
+
+    if (!isSignedIn) {
+      requestSignIn();
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     
@@ -64,7 +84,9 @@ export default function UploadPage() {
       }
       
       setLocalFile(selectedFile);
+      setFile(selectedFile);
       track("upload_select");
+      router.push("/sign");
     } catch {
       setError("Error processing file. Please try again.");
       setLocalFile(null);
@@ -93,17 +115,20 @@ export default function UploadPage() {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
+
+    if (isAuthLoading) {
+      setError("Checking your sign-in status. Please try again in a moment.");
+      return;
+    }
+
+    if (!isSignedIn) {
+      requestSignIn();
+      return;
+    }
     
     const droppedFile = e.dataTransfer.files?.[0] || null;
     if (droppedFile) {
       handleFileSelect(droppedFile);
-    }
-  };
-
-  const handleNext = () => {
-    if (file) {
-      setFile(file);
-      router.push("/sign");
     }
   };
 
@@ -120,13 +145,29 @@ export default function UploadPage() {
       <h1 className="text-2xl font-semibold mb-4">Upload PDF</h1>
       
       <div className="rounded-lg border border-foreground/15 p-6">
+        {!isSignedIn && !isAuthLoading && (
+          <div className="mb-6 rounded-lg border border-foreground/10 bg-foreground/5 p-4">
+            <div className="font-medium">Sign in required</div>
+            <p className="mt-1 text-sm text-foreground/70">
+              Sign in before uploading so NovaQuill can track your document credits and saved documents.
+            </p>
+            <button
+              type="button"
+              onClick={requestSignIn}
+              className="mt-3 inline-flex items-center rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition"
+            >
+              Sign in with Google
+            </button>
+          </div>
+        )}
+
         {/* Drag and Drop Area */}
         <div
           className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
             dragActive 
               ? "border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/5" 
               : "border-foreground/20 hover:border-foreground/30"
-          }`}
+          } ${!isSignedIn ? "opacity-75" : ""}`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
@@ -139,7 +180,7 @@ export default function UploadPage() {
                 {dragActive ? "Drop your PDF here" : "Drag and drop your PDF here"}
               </p>
               <p className="text-sm text-foreground/70 mt-1">
-                or click to browse files
+                {isSignedIn ? "or click to browse files" : "sign in first to upload and start editing"}
               </p>
             </div>
             <input
@@ -148,14 +189,25 @@ export default function UploadPage() {
               onChange={onSelect}
               className="hidden"
               id="file-input"
-              disabled={isLoading}
+              disabled={isLoading || isAuthLoading || !isSignedIn}
             />
-            <label
-              htmlFor="file-input"
-              className="inline-flex items-center rounded-md px-5 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? "Processing..." : "Choose PDF File"}
-            </label>
+            {isSignedIn ? (
+              <label
+                htmlFor="file-input"
+                className="inline-flex items-center rounded-md px-5 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? "Opening editor..." : "Choose PDF File"}
+              </label>
+            ) : (
+              <button
+                type="button"
+                onClick={requestSignIn}
+                disabled={isAuthLoading}
+                className="inline-flex items-center rounded-md px-5 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAuthLoading ? "Checking sign-in..." : "Sign in to upload"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -189,24 +241,7 @@ export default function UploadPage() {
           <p>Supported format: PDF only</p>
           <p>Maximum size: {MAX_FILE_SIZE / (1024 * 1024)}MB</p>
         </div>
-
-        {/* Next Button */}
-        <div className="mt-6">
-          <button
-            onClick={handleNext}
-            disabled={!file || isLoading}
-            className={`inline-flex items-center rounded-md px-5 py-3 bg-[color:var(--color-accent)] text-white transition ${
-              file && !isLoading 
-                ? "hover:opacity-90" 
-                : "opacity-50 cursor-not-allowed"
-            }`}
-          >
-            {isLoading ? "Processing..." : "Next: Sign"}
-          </button>
-        </div>
       </div>
     </div>
   );
 }
-
-

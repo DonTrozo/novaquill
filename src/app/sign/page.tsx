@@ -1,27 +1,41 @@
 "use client";
+import Link from "next/link";
 import PdfViewer from "@/components/PdfViewer";
 import SignatureTools from "@/components/SignatureTools";
 import DocumentFillLayer, { type TextElement } from "@/components/DocumentFillLayer";
 import { useState } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useUpload } from "@/context/UploadContext";
 import Finalizer from "./Finalizer";
 
 // Constants
 const INITIAL_SIGNATURE_POSITION = { x: 20, y: 20 };
 const INITIAL_SIGNATURE_SIZE = { width: 200, height: 80 };
+const INITIAL_SIGNATURE_ROTATION = 0;
 const INITIAL_SCALE = 1.2;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 3.0;
 const SCALE_STEP = 0.1;
+const ROTATION_STEP = 15;
+
+function normalizeRotation(value: number): number {
+  return ((value % 360) + 360) % 360;
+}
 
 export default function SignPage() {
+  const { file } = useUpload();
+  const { status } = useSession();
   const [pdfSize, setPdfSize] = useState<{ width: number; height: number } | null>(null);
   const [sigDataUrl, setSigDataUrl] = useState<string | null>(null);
   const [pos, setPos] = useState<{ x: number; y: number }>(INITIAL_SIGNATURE_POSITION);
   const [signatureSize, setSignatureSize] = useState(INITIAL_SIGNATURE_SIZE);
+  const [signatureRotation, setSignatureRotation] = useState(INITIAL_SIGNATURE_ROTATION);
   const [page, setPage] = useState(1);
   const [numPages, setNumPages] = useState(1);
   const [scale, setScale] = useState(INITIAL_SCALE);
   const [textElements, setTextElements] = useState<TextElement[]>([]);
+  const isAuthLoading = status === "loading";
+  const isSignedIn = status === "authenticated";
 
   const handleScaleChange = (direction: "increase" | "decrease") => {
     setScale((currentScale) => {
@@ -65,13 +79,69 @@ export default function SignPage() {
     setSigDataUrl(dataUrl);
     setPos(INITIAL_SIGNATURE_POSITION);
     setSignatureSize(INITIAL_SIGNATURE_SIZE);
+    setSignatureRotation(INITIAL_SIGNATURE_ROTATION);
   };
 
   const clearSignature = () => {
     setSigDataUrl(null);
     setPos(INITIAL_SIGNATURE_POSITION);
     setSignatureSize(INITIAL_SIGNATURE_SIZE);
+    setSignatureRotation(INITIAL_SIGNATURE_ROTATION);
   };
+
+  const rotateSignature = (amount: number) => {
+    setSignatureRotation((current) => normalizeRotation(current + amount));
+  };
+
+  if (isAuthLoading) {
+    return (
+      <div className="max-w-3xl mx-auto px-6 py-12">
+        <div className="rounded-lg border border-foreground/15 p-6">
+          <h1 className="text-2xl font-semibold">Checking sign-in status</h1>
+          <p className="mt-2 text-foreground/70">Please wait while NovaQuill confirms your account.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <div className="max-w-3xl mx-auto px-6 py-12">
+        <div className="rounded-lg border border-foreground/15 p-6">
+          <h1 className="text-2xl font-semibold">Sign in required</h1>
+          <p className="mt-2 text-foreground/70">
+            Sign in before signing documents so NovaQuill can track your credits and saved documents.
+          </p>
+          <button
+            type="button"
+            onClick={() => signIn("google", { callbackUrl: "/upload" })}
+            className="mt-5 inline-flex items-center rounded-md px-5 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition"
+          >
+            Sign in with Google
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!file) {
+    return (
+      <div className="max-w-3xl mx-auto px-6 py-12">
+        <div className="rounded-lg border border-foreground/15 p-6">
+          <h1 className="text-2xl font-semibold">No PDF selected</h1>
+          <p className="mt-2 text-foreground/70">
+            Upload a PDF first. After selection, NovaQuill will open the editor immediately.
+          </p>
+          <Link
+            href="/upload"
+            className="mt-5 inline-flex items-center rounded-md px-5 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition"
+          >
+            Upload PDF
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-12">
@@ -132,6 +202,7 @@ export default function SignPage() {
                 sigDataUrl={sigDataUrl}
                 signaturePosition={pos}
                 signatureSize={signatureSize}
+                signatureRotation={signatureRotation}
                 textElements={textElements}
                 onSignaturePositionChange={setPos}
                 onSignatureSizeChange={setSignatureSize}
@@ -143,8 +214,30 @@ export default function SignPage() {
         </div>
         <div className="sticky top-6">
           <SignatureTools onSignature={handleSignature} />
+          {sigDataUrl && (
+            <div className="mt-4 rounded-md border border-foreground/10 p-3">
+              <div className="mb-2 text-sm font-medium">Signature rotation</div>
+              <div className="flex items-center gap-2">
+                <button
+                  className="rounded-md border px-3 py-1 text-sm hover:bg-foreground/5"
+                  onClick={() => rotateSignature(-ROTATION_STEP)}
+                  type="button"
+                >
+                  Rotate left
+                </button>
+                <button
+                  className="rounded-md border px-3 py-1 text-sm hover:bg-foreground/5"
+                  onClick={() => rotateSignature(ROTATION_STEP)}
+                  type="button"
+                >
+                  Rotate right
+                </button>
+              </div>
+              <div className="mt-2 text-xs text-foreground/60">Current angle: {signatureRotation}°</div>
+            </div>
+          )}
           <div className="mt-4 text-xs text-foreground/60">
-            Use Add Text to fill the document. After creating a signature, drag it into place and use the corner handle to resize it.
+            Use Add Text to fill the document. After creating a signature, drag it into place, resize it with the corner handle, and rotate it if the page is landscape.
           </div>
           <div className="mt-4">
             <Finalizer
@@ -154,6 +247,7 @@ export default function SignPage() {
               y={pos.y}
               width={signatureSize.width}
               height={signatureSize.height}
+              rotation={signatureRotation}
               textElements={textElements}
               pdfViewportSize={pdfSize}
             />

@@ -46,6 +46,7 @@ export default function DocumentFillLayer({
   sigDataUrl,
   signaturePosition,
   signatureSize,
+  signatureRotation,
   textElements,
   onSignaturePositionChange,
   onSignatureSizeChange,
@@ -57,6 +58,7 @@ export default function DocumentFillLayer({
   sigDataUrl: string | null;
   signaturePosition: Point;
   signatureSize: Size;
+  signatureRotation: number;
   textElements: TextElement[];
   onSignaturePositionChange: (position: Point) => void;
   onSignatureSizeChange: (size: Size) => void;
@@ -221,6 +223,8 @@ export default function DocumentFillLayer({
             top: signaturePosition.y,
             width: signatureSize.width,
             height: signatureSize.height,
+            transform: `rotate(${signatureRotation}deg)`,
+            transformOrigin: "center center",
           }}
           onClick={(event) => {
             event.stopPropagation();

@@ -5,14 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type SignatureKind = "draw" | "type" | "upload";
 
-// Constants
-const CANVAS_WIDTH = 600;
-const CANVAS_HEIGHT = 200;
-const DRAWING_LINE_WIDTH = 2;
-const DRAWING_COLOR = "#111";
-const ASSIST_STRENGTH = 0.9;
-const MAX_SAVED_SIGNATURES = 8;
-
 type Point = { x: number; y: number };
 type SavedSignature = {
   id: string;
@@ -20,6 +12,14 @@ type SavedSignature = {
   dataUrl: string;
   createdAt: string | Date;
 };
+
+const CANVAS_WIDTH = 600;
+const CANVAS_HEIGHT = 200;
+const DRAWING_LINE_WIDTH = 2;
+const DRAWING_COLOR = "#111";
+const ASSIST_STRENGTH = 0.9;
+const MAX_SAVED_SIGNATURES = 8;
+const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
 
 function distance(a: Point, b: Point): number {
   const dx = a.x - b.x;
@@ -116,15 +116,12 @@ function trimCanvas(canvas: HTMLCanvasElement, padding = 10): HTMLCanvasElement 
     }
   }
 
-  if (maxX < minX || maxY < minY) {
-    return canvas;
-  }
+  if (maxX < minX || maxY < minY) return canvas;
 
   const cropX = Math.max(0, minX - padding);
   const cropY = Math.max(0, minY - padding);
   const cropWidth = Math.min(width - cropX, maxX - minX + 1 + padding * 2);
   const cropHeight = Math.min(height - cropY, maxY - minY + 1 + padding * 2);
-
   const out = document.createElement("canvas");
   out.width = Math.max(1, cropWidth);
   out.height = Math.max(1, cropHeight);
@@ -172,9 +169,7 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     finalizedStrokesRef.current.forEach((stroke) => drawStroke(ctx, stroke));
-    if (currentStrokeRef.current.length) {
-      drawStroke(ctx, currentStrokeRef.current);
-    }
+    if (currentStrokeRef.current.length) drawStroke(ctx, currentStrokeRef.current);
   }, []);
 
   useEffect(() => {
@@ -187,21 +182,13 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
       setIsLoadingSaved(true);
       try {
         const response = await fetch("/api/signatures", { cache: "no-store" });
-        if (!response.ok) {
-          throw new Error("Failed to load saved signatures");
-        }
+        if (!response.ok) throw new Error("Failed to load saved signatures");
         const payload = (await response.json()) as { signatures?: SavedSignature[] };
-        if (!cancelled) {
-          setSavedSignatures((payload.signatures || []).slice(0, MAX_SAVED_SIGNATURES));
-        }
+        if (!cancelled) setSavedSignatures((payload.signatures || []).slice(0, MAX_SAVED_SIGNATURES));
       } catch {
-        if (!cancelled) {
-          setSavedSignatures([]);
-        }
+        if (!cancelled) setSavedSignatures([]);
       } finally {
-        if (!cancelled) {
-          setIsLoadingSaved(false);
-        }
+        if (!cancelled) setIsLoadingSaved(false);
       }
     }
     loadSavedSignatures();
@@ -209,6 +196,34 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
       cancelled = true;
     };
   }, []);
+
+  const saveSignatureIfNeeded = async (dataUrl: string) => {
+    if (!saveForFuture) return;
+    const trimmedName = name.trim();
+    const response = await fetch("/api/signatures", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dataUrl, name: trimmedName || undefined }),
+    });
+    if (!response.ok) throw new Error("Failed to save signature");
+    const payload = (await response.json()) as { signature: SavedSignature };
+    setSavedSignatures((prev) => {
+      const withoutDup = prev.filter((item) => item.id !== payload.signature.id);
+      return [payload.signature, ...withoutDup].slice(0, MAX_SAVED_SIGNATURES);
+    });
+  };
+
+  const applySignature = async (dataUrl: string, shouldSave = true) => {
+    onSignature(dataUrl);
+    setError(null);
+    if (!shouldSave) return;
+    try {
+      await saveSignatureIfNeeded(dataUrl);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Signature placed but could not be saved";
+      setError(message);
+    }
+  };
 
   const clearCanvas = () => {
     finalizedStrokesRef.current = [];
@@ -240,83 +255,44 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
     redrawCanvas();
   };
 
-  const saveSignatureIfNeeded = async (dataUrl: string) => {
-    if (!saveForFuture) return;
-    const trimmedName = name.trim();
-    const response = await fetch("/api/signatures", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dataUrl, name: trimmedName || undefined }),
-    });
-    if (!response.ok) {
-      throw new Error("Failed to save signature");
-    }
-    const payload = (await response.json()) as { signature: SavedSignature };
-    setSavedSignatures((prev) => {
-      const withoutDup = prev.filter((item) => item.id !== payload.signature.id);
-      return [payload.signature, ...withoutDup].slice(0, MAX_SAVED_SIGNATURES);
-    });
-  };
-
   const toDataUrl = async () => {
     setIsProcessing(true);
     setError(null);
-    
+
     try {
       if (mode === "draw") {
-        if (!finalizedStrokesRef.current.length) {
-          throw new Error("Draw your signature first");
-        }
+        if (!finalizedStrokesRef.current.length) throw new Error("Draw your signature first");
         const output = document.createElement("canvas");
         output.width = CANVAS_WIDTH;
         output.height = CANVAS_HEIGHT;
         const outputCtx = output.getContext("2d");
-        if (!outputCtx) {
-          throw new Error("Canvas not available");
-        }
-
+        if (!outputCtx) throw new Error("Canvas not available");
         outputCtx.clearRect(0, 0, output.width, output.height);
         outputCtx.strokeStyle = DRAWING_COLOR;
         outputCtx.lineWidth = DRAWING_LINE_WIDTH;
         outputCtx.lineCap = "round";
         outputCtx.lineJoin = "round";
         finalizedStrokesRef.current.forEach((stroke) => drawStroke(outputCtx, stroke));
-
         const cropped = trimCanvas(output);
-        const dataUrl = cropped.toDataURL("image/png");
-        onSignature(dataUrl);
-        await saveSignatureIfNeeded(dataUrl);
+        await applySignature(cropped.toDataURL("image/png"));
       } else if (mode === "type") {
-        if (!typed.trim()) {
-          throw new Error("Please enter text for your signature");
-        }
-        
-        // Render typed text to a temp canvas
+        if (!typed.trim()) throw new Error("Please enter text for your signature");
         const canvas = document.createElement("canvas");
         canvas.width = CANVAS_WIDTH;
         canvas.height = CANVAS_HEIGHT;
         const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          throw new Error("Failed to create temporary canvas");
-        }
-        
+        if (!ctx) throw new Error("Failed to create temporary canvas");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = DRAWING_COLOR;
         ctx.font = `64px ${font}`;
         ctx.textBaseline = "middle";
         ctx.textAlign = "left";
         ctx.fillText(typed.trim(), 20, canvas.height / 2);
-
         const cropped = trimCanvas(canvas);
-        const dataUrl = cropped.toDataURL("image/png");
-        onSignature(dataUrl);
-        await saveSignatureIfNeeded(dataUrl);
+        await applySignature(cropped.toDataURL("image/png"));
       } else if (mode === "upload") {
-        if (!uploadedDataUrl) {
-          throw new Error("Please select an image file first");
-        }
-        onSignature(uploadedDataUrl);
-        await saveSignatureIfNeeded(uploadedDataUrl);
+        if (!uploadedDataUrl) throw new Error("Please select an image file first");
+        await applySignature(uploadedDataUrl);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create signature";
@@ -329,27 +305,29 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       setError("Please select an image file");
       return;
     }
-    
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > MAX_UPLOAD_SIZE) {
       setError("Image file must be smaller than 5MB");
       return;
     }
-    
+
+    setIsProcessing(true);
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === "string") {
-        setError(null);
-        setUploadedDataUrl(reader.result);
+        const dataUrl = reader.result;
+        setUploadedDataUrl(dataUrl);
+        void applySignature(dataUrl).finally(() => setIsProcessing(false));
+      } else {
+        setIsProcessing(false);
+        setError("Failed to read image file");
       }
     };
     reader.onerror = () => {
+      setIsProcessing(false);
       setError("Failed to read image file");
     };
     reader.readAsDataURL(file);
@@ -358,22 +336,12 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
   const removeSavedSignature = (id: string) => {
     fetch(`/api/signatures?id=${encodeURIComponent(id)}`, { method: "DELETE" })
       .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to remove signature");
-        }
+        if (!response.ok) throw new Error("Failed to remove signature");
         setSavedSignatures((prev) => prev.filter((item) => item.id !== id));
       })
-      .catch(() => {
-        setError("Failed to remove saved signature");
-      });
+      .catch(() => setError("Failed to remove saved signature"));
   };
 
-  const applySavedSignature = (dataUrl: string) => {
-    onSignature(dataUrl);
-    setError(null);
-  };
-
-  // Get coordinates from pointer event
   const getCoordinates = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
@@ -390,7 +358,6 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
     e.preventDefault();
     const coords = getCoordinates(e);
     if (!coords) return;
-
     drawingRef.current = true;
     currentStrokeRef.current = [coords];
     redrawCanvas();
@@ -401,7 +368,6 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
     if (!drawingRef.current) return;
     const coords = getCoordinates(e);
     if (!coords) return;
-
     currentStrokeRef.current = [...currentStrokeRef.current, coords];
     redrawCanvas();
   };
@@ -411,7 +377,6 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
     if (!drawingRef.current) return;
     drawingRef.current = false;
     if (currentStrokeRef.current.length > 0) {
-      // Apply cleanup assist once the user lifts the pointer to preserve natural in-stroke drawing.
       const refined = refineStroke(currentStrokeRef.current, ASSIST_STRENGTH);
       finalizedStrokesRef.current = [...finalizedStrokesRef.current, refined];
       redoStrokesRef.current = [];
@@ -431,41 +396,25 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
         {isLoadingSaved ? (
           <p className="text-xs text-foreground/65">Loading saved signatures...</p>
         ) : savedSignatures.length === 0 ? (
-          <p className="text-xs text-foreground/65">
-            Save a signature once and reuse it instantly in future documents.
-          </p>
+          <p className="text-xs text-foreground/65">Save a signature once and reuse it instantly in future documents.</p>
         ) : (
           <div className="grid gap-2 max-h-44 overflow-auto pr-1">
             {savedSignatures.map((signature) => (
-              <div
-                key={signature.id}
-                className="rounded-md border border-foreground/15 p-2 flex items-center justify-between gap-2"
-              >
+              <div key={signature.id} className="rounded-md border border-foreground/15 p-2 flex items-center justify-between gap-2">
                 <button
-                  onClick={() => applySavedSignature(signature.dataUrl)}
+                  onClick={() => void applySignature(signature.dataUrl, false)}
                   className="flex items-center gap-2 min-w-0 text-left hover:opacity-90"
                   aria-label={`Use saved signature ${signature.name}`}
                 >
                   <div className="h-10 w-24 rounded bg-white border border-foreground/10 flex items-center justify-center overflow-hidden">
-                    <Image
-                      src={signature.dataUrl}
-                      alt={signature.name}
-                      width={96}
-                      height={40}
-                      className="max-h-full max-w-full object-contain"
-                      unoptimized
-                    />
+                    <Image src={signature.dataUrl} alt={signature.name} width={96} height={40} className="max-h-full max-w-full object-contain" unoptimized />
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-medium truncate">{signature.name}</p>
                     <p className="text-[11px] text-foreground/60">Tap to use</p>
                   </div>
                 </button>
-                <button
-                  onClick={() => removeSavedSignature(signature.id)}
-                  className="text-xs rounded-md border px-2 py-1 hover:bg-foreground/5"
-                  aria-label={`Remove saved signature ${signature.name}`}
-                >
+                <button onClick={() => removeSavedSignature(signature.id)} className="text-xs rounded-md border px-2 py-1 hover:bg-foreground/5" aria-label={`Remove saved signature ${signature.name}`}>
                   Remove
                 </button>
               </div>
@@ -475,31 +424,13 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        <button 
-          onClick={() => setMode("draw")} 
-          className={`px-3 py-1 rounded-md border transition-colors ${
-            mode === "draw" ? "bg-foreground/5 border-foreground/30" : "hover:bg-foreground/5"
-          }`}
-          aria-label="Draw signature"
-        >
+        <button onClick={() => setMode("draw")} className={`px-3 py-1 rounded-md border transition-colors ${mode === "draw" ? "bg-foreground/5 border-foreground/30" : "hover:bg-foreground/5"}`} aria-label="Draw signature">
           Draw
         </button>
-        <button 
-          onClick={() => setMode("type")} 
-          className={`px-3 py-1 rounded-md border transition-colors ${
-            mode === "type" ? "bg-foreground/5 border-foreground/30" : "hover:bg-foreground/5"
-          }`}
-          aria-label="Type signature"
-        >
+        <button onClick={() => setMode("type")} className={`px-3 py-1 rounded-md border transition-colors ${mode === "type" ? "bg-foreground/5 border-foreground/30" : "hover:bg-foreground/5"}`} aria-label="Type signature">
           Type
         </button>
-        <button 
-          onClick={() => setMode("upload")} 
-          className={`px-3 py-1 rounded-md border transition-colors ${
-            mode === "upload" ? "bg-foreground/5 border-foreground/30" : "hover:bg-foreground/5"
-          }`}
-          aria-label="Upload signature image"
-        >
+        <button onClick={() => setMode("upload")} className={`px-3 py-1 rounded-md border transition-colors ${mode === "upload" ? "bg-foreground/5 border-foreground/30" : "hover:bg-foreground/5"}`} aria-label="Upload signature image">
           Upload
         </button>
       </div>
@@ -509,27 +440,13 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Draw your signature</span>
             <div className="flex items-center gap-2">
-              <button
-                onClick={undoStroke}
-                disabled={strokeCount === 0 || drawingRef.current}
-                className="text-xs rounded-md border px-2 py-1 hover:bg-foreground/5 disabled:opacity-50 disabled:cursor-not-allowed"
-                aria-label="Undo last stroke"
-              >
+              <button onClick={undoStroke} disabled={strokeCount === 0 || drawingRef.current} className="text-xs rounded-md border px-2 py-1 hover:bg-foreground/5 disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Undo last stroke">
                 Undo
               </button>
-              <button
-                onClick={redoStroke}
-                disabled={redoStrokeCount === 0 || drawingRef.current}
-                className="text-xs rounded-md border px-2 py-1 hover:bg-foreground/5 disabled:opacity-50 disabled:cursor-not-allowed"
-                aria-label="Redo last undone stroke"
-              >
+              <button onClick={redoStroke} disabled={redoStrokeCount === 0 || drawingRef.current} className="text-xs rounded-md border px-2 py-1 hover:bg-foreground/5 disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Redo last undone stroke">
                 Redo
               </button>
-              <button 
-                onClick={clearCanvas}
-                className="text-sm text-foreground/70 hover:text-foreground hover:underline"
-                aria-label="Clear canvas"
-              >
+              <button onClick={clearCanvas} className="text-sm text-foreground/70 hover:text-foreground hover:underline" aria-label="Clear canvas">
                 Clear
               </button>
             </div>
@@ -550,36 +467,19 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
               aria-label="Signature drawing canvas"
             />
           </div>
-          <p className="text-xs text-foreground/60">
-            Cleanup assist is automatically applied at 90% when each stroke ends.
-          </p>
+          <p className="text-xs text-foreground/60">Cleanup assist is automatically applied at 90% when each stroke ends.</p>
         </div>
       )}
 
       {mode === "type" && (
         <div className="grid gap-3">
           <div>
-            <label htmlFor="signature-text" className="block text-sm font-medium mb-2">
-              Type your signature
-            </label>
-            <input 
-              id="signature-text"
-              value={typed} 
-              onChange={(e) => setTyped(e.target.value)} 
-              placeholder="Enter your name or signature" 
-              className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent" 
-            />
+            <label htmlFor="signature-text" className="block text-sm font-medium mb-2">Type your signature</label>
+            <input id="signature-text" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Enter your name or signature" className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent" />
           </div>
           <div>
-            <label htmlFor="signature-font" className="block text-sm font-medium mb-2">
-              Font style
-            </label>
-            <select 
-              id="signature-font"
-              value={font} 
-              onChange={(e) => setFont(e.target.value)} 
-              className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent"
-            >
+            <label htmlFor="signature-font" className="block text-sm font-medium mb-2">Font style</label>
+            <select id="signature-font" value={font} onChange={(e) => setFont(e.target.value)} className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent">
               <option value="cursive">Cursive</option>
               <option value="serif">Serif</option>
               <option value="sans-serif">Sans</option>
@@ -591,31 +491,14 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
 
       {mode === "upload" && (
         <div className="space-y-3">
-          <label htmlFor="signature-upload" className="block text-sm font-medium">
-            Upload signature image
-          </label>
-          <input 
-            id="signature-upload"
-            type="file" 
-            accept="image/*" 
-            onChange={handleFileUpload}
-            className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent"
-          />
-          <p className="text-xs text-foreground/70">
-            Supported formats: JPG, PNG, GIF. Max size: 5MB.
-          </p>
+          <label htmlFor="signature-upload" className="block text-sm font-medium">Upload signature image</label>
+          <input id="signature-upload" type="file" accept="image/*" onChange={handleFileUpload} className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent" />
+          <p className="text-xs text-foreground/70">Supported formats: JPG, PNG, GIF. Max size: 5MB. Uploading now places the signature on the document immediately.</p>
           {uploadedDataUrl && (
             <div className="rounded-md border border-foreground/15 p-2">
               <p className="text-xs text-foreground/70 mb-2">Preview</p>
               <div className="h-14 bg-white rounded border border-foreground/10 flex items-center justify-center">
-                <Image
-                  src={uploadedDataUrl}
-                  alt="Uploaded signature preview"
-                  width={220}
-                  height={56}
-                  className="max-h-full max-w-full object-contain"
-                  unoptimized
-                />
+                <Image src={uploadedDataUrl} alt="Uploaded signature preview" width={220} height={56} className="max-h-full max-w-full object-contain" unoptimized />
               </div>
             </div>
           )}
@@ -623,28 +506,14 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
       )}
 
       <div className="rounded-lg border border-foreground/15 p-3 space-y-3">
-        <label htmlFor="signature-name" className="block text-xs font-medium">
-          Save name (optional)
-        </label>
-        <input
-          id="signature-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Personal signature"
-          className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent"
-        />
+        <label htmlFor="signature-name" className="block text-xs font-medium">Save name (optional)</label>
+        <input id="signature-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Personal signature" className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent" />
         <label className="flex items-center justify-between text-sm">
           <span>Save this signature for future use</span>
-          <input
-            type="checkbox"
-            checked={saveForFuture}
-            onChange={(e) => setSaveForFuture(e.target.checked)}
-            aria-label="Save signature for future use"
-          />
+          <input type="checkbox" checked={saveForFuture} onChange={(e) => setSaveForFuture(e.target.checked)} aria-label="Save signature for future use" />
         </label>
       </div>
 
-      {/* Error Display */}
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
           <div className="flex items-center gap-2 text-red-700 text-sm">
@@ -655,17 +524,10 @@ export default function SignatureTools({ onSignature }: { onSignature: (dataUrl:
       )}
 
       <div>
-        <button 
-          onClick={toDataUrl} 
-          disabled={isProcessing || (mode === "type" && !typed.trim())}
-          className="w-full rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
-          aria-label="Use this signature"
-        >
-          {isProcessing ? "Processing..." : "Use Signature on Document"}
+        <button onClick={toDataUrl} disabled={isProcessing || (mode === "type" && !typed.trim())} className="w-full rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity" aria-label="Use this signature">
+          {isProcessing ? "Processing..." : mode === "upload" && uploadedDataUrl ? "Place Uploaded Signature Again" : "Use Signature on Document"}
         </button>
       </div>
     </div>
   );
 }
-
-

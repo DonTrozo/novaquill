@@ -1,6 +1,6 @@
 "use client";
 
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, degrees, rgb } from "pdf-lib";
 import { useUpload } from "@/context/UploadContext";
 import { track } from "@/lib/track";
 import { useState } from "react";
@@ -29,6 +29,7 @@ export default function Finalizer({
   y = 20,
   width = 200,
   height: signatureHeight = 80,
+  rotation = 0,
   textElements = [],
   pdfViewportSize,
 }: {
@@ -38,6 +39,7 @@ export default function Finalizer({
   y: number;
   width: number;
   height?: number;
+  rotation?: number;
   textElements?: TextElement[];
   pdfViewportSize?: ViewportSize | null;
 }) {
@@ -119,12 +121,17 @@ export default function Finalizer({
         const png = await pdfDoc.embedPng(pngBytes);
         const targetPageIndex = Math.max(0, Math.min(page - 1, pages.length - 1));
         const { target, targetSize, scaleX, scaleY } = getPageScales(targetPageIndex);
+        const drawnWidth = width * scaleX;
+        const drawnHeight = signatureHeight * scaleY;
+        const centerX = (x + width / 2) * scaleX;
+        const centerY = targetSize.height - (y + signatureHeight / 2) * scaleY;
 
         target.drawImage(png, {
-          x: x * scaleX,
-          y: targetSize.height - (y + signatureHeight) * scaleY,
-          width: width * scaleX,
-          height: signatureHeight * scaleY,
+          x: centerX - drawnWidth / 2,
+          y: centerY - drawnHeight / 2,
+          width: drawnWidth,
+          height: drawnHeight,
+          rotate: degrees(rotation),
         });
       }
 

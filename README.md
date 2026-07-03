@@ -1,6 +1,6 @@
 # NovaQuill
 
-NovaQuill is a minimalist PDF signing app: upload a PDF, create or reuse a signature, place it on the document, and download a flattened signed PDF.
+NovaQuill is a minimalist PDF signing app: sign in, upload a PDF, create or reuse a signature, place it on the document, and download a flattened signed PDF.
 
 ## Stack
 
@@ -18,11 +18,11 @@ NovaQuill is a minimalist PDF signing app: upload a PDF, create or reuse a signa
 
 ## Core routes
 
-- `/` — landing page
-- `/upload` — anonymous quick upload flow
-- `/sign` — anonymous signing flow using the in-memory upload context
+- `/` — landing page with signed-in PDF upload entry
+- `/upload` — authenticated upload flow that opens the editor immediately after PDF selection
+- `/sign` — authenticated document editor using the in-memory upload context
 - `/dashboard` — authenticated signing workspace, saved signatures, recent documents, usage, export/delete controls
-- `/pricing` — Free/Pro plans and PayFast checkout entry
+- `/pricing` — Free/Pro Monthly/Pro Annual plans and PayFast checkout entry
 - `/login` and `/register` — account access
 
 ## Local setup
@@ -54,6 +54,23 @@ Generate `STORAGE_ENCRYPTION_KEY` with:
 ```bash
 openssl rand -base64 32
 ```
+
+## Google OAuth redirect URI mismatch
+
+If Google sign-in fails with `redirect_uri_mismatch`, confirm the production OAuth client has these authorised redirect URIs:
+
+```text
+https://www.novaquill.co.za/api/auth/callback/google
+https://novaquill.co.za/api/auth/callback/google
+```
+
+Set the deployed production environment to:
+
+```env
+NEXTAUTH_URL=https://www.novaquill.co.za
+```
+
+The redirect URI must match exactly, including protocol, domain, path, and `www`. Keep both `www` and non-`www` callback URLs authorised if users can reach either domain.
 
 ## Document storage
 
@@ -90,8 +107,9 @@ Supported providers:
 ## Subscriptions and usage
 
 - Free accounts: 3 signed documents per month.
-- Pro accounts: unlimited signing.
-- Anonymous users can use the quick signing flow, but they do not get cloud storage, saved signatures, or account usage tracking.
+- Pro Monthly accounts: unlimited signing with monthly billing.
+- Pro Annual accounts: unlimited signing with discounted annual billing.
+- Uploading and signing require sign-in so credits, saved documents, and account usage can be tracked.
 
 ## Production notes
 

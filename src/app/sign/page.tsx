@@ -1,8 +1,11 @@
 "use client";
+import Link from "next/link";
 import PdfViewer from "@/components/PdfViewer";
 import SignatureTools from "@/components/SignatureTools";
 import DocumentFillLayer, { type TextElement } from "@/components/DocumentFillLayer";
 import { useState } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useUpload } from "@/context/UploadContext";
 import Finalizer from "./Finalizer";
 
 // Constants
@@ -20,6 +23,8 @@ function normalizeRotation(value: number): number {
 }
 
 export default function SignPage() {
+  const { file } = useUpload();
+  const { status } = useSession();
   const [pdfSize, setPdfSize] = useState<{ width: number; height: number } | null>(null);
   const [sigDataUrl, setSigDataUrl] = useState<string | null>(null);
   const [pos, setPos] = useState<{ x: number; y: number }>(INITIAL_SIGNATURE_POSITION);
@@ -29,6 +34,8 @@ export default function SignPage() {
   const [numPages, setNumPages] = useState(1);
   const [scale, setScale] = useState(INITIAL_SCALE);
   const [textElements, setTextElements] = useState<TextElement[]>([]);
+  const isAuthLoading = status === "loading";
+  const isSignedIn = status === "authenticated";
 
   const handleScaleChange = (direction: "increase" | "decrease") => {
     setScale((currentScale) => {
@@ -85,6 +92,56 @@ export default function SignPage() {
   const rotateSignature = (amount: number) => {
     setSignatureRotation((current) => normalizeRotation(current + amount));
   };
+
+  if (isAuthLoading) {
+    return (
+      <div className="max-w-3xl mx-auto px-6 py-12">
+        <div className="rounded-lg border border-foreground/15 p-6">
+          <h1 className="text-2xl font-semibold">Checking sign-in status</h1>
+          <p className="mt-2 text-foreground/70">Please wait while NovaQuill confirms your account.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <div className="max-w-3xl mx-auto px-6 py-12">
+        <div className="rounded-lg border border-foreground/15 p-6">
+          <h1 className="text-2xl font-semibold">Sign in required</h1>
+          <p className="mt-2 text-foreground/70">
+            Sign in before signing documents so NovaQuill can track your credits and saved documents.
+          </p>
+          <button
+            type="button"
+            onClick={() => signIn("google", { callbackUrl: "/upload" })}
+            className="mt-5 inline-flex items-center rounded-md px-5 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition"
+          >
+            Sign in with Google
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!file) {
+    return (
+      <div className="max-w-3xl mx-auto px-6 py-12">
+        <div className="rounded-lg border border-foreground/15 p-6">
+          <h1 className="text-2xl font-semibold">No PDF selected</h1>
+          <p className="mt-2 text-foreground/70">
+            Upload a PDF first. After selection, NovaQuill will open the editor immediately.
+          </p>
+          <Link
+            href="/upload"
+            className="mt-5 inline-flex items-center rounded-md px-5 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition"
+          >
+            Upload PDF
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-12">

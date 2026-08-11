@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useUpload } from "@/context/UploadContext";
 import { track } from "@/lib/track";
 
@@ -23,7 +23,7 @@ export default function Home() {
   const requestSignIn = () => {
     setError("Please sign in before uploading a PDF.");
     track("home_upload_signin_required");
-    void signIn("google", { callbackUrl: "/" });
+    router.push("/login?next=/");
   };
 
   const validatePdfHeader = async (file: File): Promise<boolean> => {
@@ -155,7 +155,7 @@ export default function Home() {
                 onClick={requestSignIn}
                 className="inline-flex items-center justify-center rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition"
               >
-                Sign in with Google
+                Sign in
               </button>
             )}
           </div>

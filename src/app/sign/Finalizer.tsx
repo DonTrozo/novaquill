@@ -97,7 +97,7 @@ export default function Finalizer({
 
   function validateInput() {
     if (!file) return "Missing file";
-    if (!canFinalize) return "Add a signature or fill text before generating a preview";
+    if (!canFinalize) return "Add a signature, text, date, initials, or checkbox before previewing.";
     if (file.size > MAX_FILE_SIZE) return "File is too large to process. Please use a smaller PDF.";
     return null;
   }
@@ -212,7 +212,7 @@ export default function Finalizer({
 
   async function onConfirmDownload() {
     if (!preview || !isPreviewCurrent) {
-      setError("Generate and check the latest preview before downloading.");
+      setError("Finish and check the latest preview before downloading.");
       return;
     }
 
@@ -223,6 +223,10 @@ export default function Finalizer({
       const usageResponse = await fetch("/api/usage", { method: "POST" });
       if (usageResponse.status === 402) {
         setError("Free limit reached (3/month). Please upgrade to Pro.");
+        return;
+      }
+      if (usageResponse.status === 401) {
+        setError("Please sign in again before downloading.");
         return;
       }
       if (!usageResponse.ok) {
@@ -266,9 +270,9 @@ export default function Finalizer({
         onClick={onPreview}
         disabled={!canFinalize || isProcessing || isConfirming}
         className="w-full rounded-md bg-[color:var(--color-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        aria-label="Generate completed PDF preview"
+        aria-label="Finish and preview signed PDF"
       >
-        {isProcessing ? "Generating preview..." : isPreviewCurrent ? "Regenerate Preview" : "Generate Preview"}
+        {isProcessing ? "Creating preview..." : isPreviewCurrent ? "Update Preview" : "Finish & Preview"}
       </button>
 
       {isProcessing && (
@@ -279,47 +283,61 @@ export default function Finalizer({
 
       {preview && !isPreviewCurrent && (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-          The document changed after this preview was created. Generate a new preview before downloading.
+          The document changed after this preview was created. Update the preview before downloading.
         </div>
       )}
 
       {preview && isPreviewCurrent && (
-        <div className="space-y-3 rounded-lg border border-foreground/15 p-3">
-          <div>
-            <div className="text-sm font-medium">Final preview</div>
-            <div className="mt-1 text-xs text-foreground/60">
-              Check placement here first. Credits are only used after you confirm the download.
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-xl bg-background shadow-2xl">
+            <div className="flex flex-col gap-2 border-b border-foreground/10 p-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Review your signed PDF</h2>
+                <p className="mt-1 text-sm text-foreground/70">
+                  Check placement here first. Your credit is only used when you download the final PDF.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={clearPreview}
+                disabled={isConfirming}
+                className="rounded-md border border-foreground/20 px-3 py-1.5 text-sm hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Back to Edit
+              </button>
             </div>
-          </div>
-          <iframe
-            title="Completed PDF preview"
-            src={preview.url}
-            className="h-[420px] w-full rounded-md border border-foreground/10 bg-white"
-          />
-          <div className="grid gap-2">
-            <button
-              type="button"
-              onClick={onConfirmDownload}
-              disabled={isConfirming}
-              className="w-full rounded-md bg-[color:var(--color-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isConfirming ? "Confirming..." : "Confirm & Download PDF"}
-            </button>
-            <button
-              type="button"
-              onClick={clearPreview}
-              disabled={isConfirming}
-              className="w-full rounded-md border border-foreground/20 px-4 py-2 text-sm transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Back to editing
-            </button>
+            <div className="min-h-0 flex-1 p-4">
+              <iframe
+                title="Completed PDF preview"
+                src={preview.url}
+                className="h-[65vh] w-full rounded-md border border-foreground/10 bg-white"
+              />
+            </div>
+            <div className="grid gap-2 border-t border-foreground/10 p-4 sm:flex sm:items-center sm:justify-end">
+              <button
+                type="button"
+                onClick={clearPreview}
+                disabled={isConfirming}
+                className="rounded-md border border-foreground/20 px-4 py-2 text-sm transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Back to Edit
+              </button>
+              <button
+                type="button"
+                onClick={onConfirmDownload}
+                disabled={isConfirming}
+                className="rounded-md bg-[color:var(--color-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isConfirming ? "Preparing download..." : "Download Signed PDF"}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {!canFinalize && (
         <div className="text-center text-xs text-foreground/60">
-          Add a signature, fill text, or checkmark to generate a preview
+          Add a signature, text, date, initials, or checkbox to preview the final PDF
         </div>
       )}
     </div>

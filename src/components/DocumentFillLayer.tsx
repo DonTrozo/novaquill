@@ -14,6 +14,8 @@ export type TextElement = {
   fontSize: number;
 };
 
+export type EditorTool = "select" | "signature" | "text" | "initials" | "date" | "checkbox";
+
 type Size = { width: number; height: number };
 type Point = { x: number; y: number };
 type Selected = { kind: "signature" | "text"; id?: string } | null;
@@ -43,11 +45,14 @@ function clamp(value: number, min: number, max: number): number {
 export default function DocumentFillLayer({
   pdfSize,
   page,
+  activeTool,
   sigDataUrl,
+  signaturePlaced,
   signaturePosition,
   signatureSize,
   signatureRotation,
   textElements,
+  onToolPlaced,
   onSignaturePositionChange,
   onSignatureSizeChange,
   onTextElementsChange,
@@ -55,11 +60,14 @@ export default function DocumentFillLayer({
 }: {
   pdfSize: Size;
   page: number;
+  activeTool: EditorTool;
   sigDataUrl: string | null;
+  signaturePlaced: boolean;
   signaturePosition: Point;
   signatureSize: Size;
   signatureRotation: number;
   textElements: TextElement[];
+  onToolPlaced: (point: Point) => void;
   onSignaturePositionChange: (position: Point) => void;
   onSignatureSizeChange: (size: Size) => void;
   onTextElementsChange: (elements: TextElement[]) => void;
@@ -69,6 +77,7 @@ export default function DocumentFillLayer({
   const [dragState, setDragState] = useState<DragState | null>(null);
 
   const pageTextElements = textElements.filter((item) => item.page === page);
+  const placementMode = activeTool !== "select";
 
   const updateText = (id: string, updates: Partial<TextElement>) => {
     onTextElementsChange(textElements.map((item) => (item.id === id ? { ...item, ...updates } : item)));
@@ -118,10 +127,7 @@ export default function DocumentFillLayer({
     }
   };
 
-  const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (dragState) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
+  const endDrag = () => {
     setDragState(null);
   };
 
@@ -135,16 +141,37 @@ export default function DocumentFillLayer({
     setSelected(null);
   };
 
+  const handleCanvasClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!placementMode) {
+      setSelected(null);
+      return;
+    }
+
+    if (event.target !== event.currentTarget) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    onToolPlaced({
+      x: clamp(event.clientX - rect.left, 0, pdfSize.width),
+      y: clamp(event.clientY - rect.top, 0, pdfSize.height),
+    });
+    setSelected(null);
+  };
+
   return (
     <div
-      className="absolute inset-0"
+      className={`absolute inset-0 ${placementMode ? "cursor-crosshair" : ""}`}
       style={{ width: pdfSize.width, height: pdfSize.height }}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
-      onClick={() => setSelected(null)}
+      onClick={handleCanvasClick}
     >
-      {selected && (
+      {placementMode && (
+        <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-full border border-foreground/10 bg-background/90 px-3 py-1 text-xs shadow">
+          Click where you want to place it
+        </div>
+      )}
+
+      {selected && !placementMode && (
         <button
           type="button"
           className="absolute right-2 top-2 z-20 rounded-md border bg-background px-2 py-1 text-xs shadow hover:bg-red-50 hover:text-red-700"
@@ -195,7 +222,7 @@ export default function DocumentFillLayer({
                 style={{ fontSize: item.fontSize }}
               />
             </div>
-            {isSelected && (
+            {isSelected && !placementMode && (
               <div
                 className="absolute -bottom-2 -right-2 h-4 w-4 cursor-se-resize rounded-full border border-[color:var(--color-accent)] bg-background shadow"
                 onPointerDown={(event) =>
@@ -215,7 +242,7 @@ export default function DocumentFillLayer({
         );
       })}
 
-      {sigDataUrl && (
+      {sigDataUrl && signaturePlaced && (
         <div
           className={`absolute z-10 ${selected?.kind === "signature" ? "ring-2 ring-[color:var(--color-accent)] ring-offset-2" : ""}`}
           style={{
@@ -255,19 +282,21 @@ export default function DocumentFillLayer({
               unoptimized
             />
           </div>
-          <div
-            className="absolute -bottom-2 -right-2 h-4 w-4 cursor-se-resize rounded-full border border-[color:var(--color-accent)] bg-background shadow"
-            onPointerDown={(event) =>
-              beginDrag(event, {
-                target: "signature",
-                kind: "resize",
-                startX: signaturePosition.x,
-                startY: signaturePosition.y,
-                startWidth: signatureSize.width,
-                startHeight: signatureSize.height,
-              })
-            }
-          />
+          {selected?.kind === "signature" && !placementMode && (
+            <div
+              className="absolute -bottom-2 -right-2 h-4 w-4 cursor-se-resize rounded-full border border-[color:var(--color-accent)] bg-background shadow"
+              onPointerDown={(event) =>
+                beginDrag(event, {
+                  target: "signature",
+                  kind: "resize",
+                  startX: signaturePosition.x,
+                  startY: signaturePosition.y,
+                  startWidth: signatureSize.width,
+                  startHeight: signatureSize.height,
+                })
+              }
+            />
+          )}
         </div>
       )}
     </div>

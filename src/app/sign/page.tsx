@@ -1,14 +1,14 @@
 "use client";
+
 import Link from "next/link";
 import PdfViewer from "@/components/PdfViewer";
 import SignatureTools from "@/components/SignatureTools";
 import DocumentFillLayer, { type TextElement } from "@/components/DocumentFillLayer";
 import { useState } from "react";
-import { signIn, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useUpload } from "@/context/UploadContext";
 import Finalizer from "./Finalizer";
 
-// Constants
 const INITIAL_SIGNATURE_POSITION = { x: 20, y: 20 };
 const INITIAL_SIGNATURE_SIZE = { width: 200, height: 80 };
 const INITIAL_SIGNATURE_ROTATION = 0;
@@ -18,6 +18,8 @@ const MAX_SCALE = 3.0;
 const SCALE_STEP = 0.1;
 const ROTATION_STEP = 15;
 
+type PdfSize = { width: number; height: number };
+
 function normalizeRotation(value: number): number {
   return ((value % 360) + 360) % 360;
 }
@@ -25,7 +27,8 @@ function normalizeRotation(value: number): number {
 export default function SignPage() {
   const { file } = useUpload();
   const { status } = useSession();
-  const [pdfSize, setPdfSize] = useState<{ width: number; height: number } | null>(null);
+  const [pdfSize, setPdfSize] = useState<PdfSize | null>(null);
+  const [pdfPageSizes, setPdfPageSizes] = useState<Record<number, PdfSize>>({});
   const [sigDataUrl, setSigDataUrl] = useState<string | null>(null);
   const [pos, setPos] = useState<{ x: number; y: number }>(INITIAL_SIGNATURE_POSITION);
   const [signatureSize, setSignatureSize] = useState(INITIAL_SIGNATURE_SIZE);
@@ -37,13 +40,17 @@ export default function SignPage() {
   const isAuthLoading = status === "loading";
   const isSignedIn = status === "authenticated";
 
+  const handlePdfSize = (size: PdfSize) => {
+    setPdfSize(size);
+    setPdfPageSizes((current) => ({ ...current, [page]: size }));
+  };
+
   const handleScaleChange = (direction: "increase" | "decrease") => {
     setScale((currentScale) => {
       if (direction === "increase") {
         return Math.min(MAX_SCALE, currentScale + SCALE_STEP);
-      } else {
-        return Math.max(MIN_SCALE, currentScale - SCALE_STEP);
       }
+      return Math.max(MIN_SCALE, currentScale - SCALE_STEP);
     });
   };
 
@@ -51,9 +58,8 @@ export default function SignPage() {
     setPage((currentPage) => {
       if (direction === "next") {
         return Math.min(numPages, currentPage + 1);
-      } else {
-        return Math.max(1, currentPage - 1);
       }
+      return Math.max(1, currentPage - 1);
     });
   };
 
@@ -71,6 +77,23 @@ export default function SignPage() {
         height: 36,
         text: "",
         fontSize: 14,
+      },
+    ]);
+  };
+
+  const handleAddCheckmark = () => {
+    if (!pdfSize) return;
+    setTextElements((current) => [
+      ...current,
+      {
+        id: `check-${Date.now()}`,
+        page,
+        x: 30,
+        y: 30,
+        width: 32,
+        height: 32,
+        text: "X",
+        fontSize: 18,
       },
     ]);
   };
@@ -95,7 +118,7 @@ export default function SignPage() {
 
   if (isAuthLoading) {
     return (
-      <div className="max-w-3xl mx-auto px-6 py-12">
+      <div className="mx-auto max-w-3xl px-6 py-12">
         <div className="rounded-lg border border-foreground/15 p-6">
           <h1 className="text-2xl font-semibold">Checking sign-in status</h1>
           <p className="mt-2 text-foreground/70">Please wait while NovaQuill confirms your account.</p>
@@ -106,19 +129,18 @@ export default function SignPage() {
 
   if (!isSignedIn) {
     return (
-      <div className="max-w-3xl mx-auto px-6 py-12">
+      <div className="mx-auto max-w-3xl px-6 py-12">
         <div className="rounded-lg border border-foreground/15 p-6">
           <h1 className="text-2xl font-semibold">Sign in required</h1>
           <p className="mt-2 text-foreground/70">
             Sign in before signing documents so NovaQuill can track your credits and saved documents.
           </p>
-          <button
-            type="button"
-            onClick={() => signIn("google", { callbackUrl: "/upload" })}
-            className="mt-5 inline-flex items-center rounded-md px-5 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition"
+          <Link
+            href="/login?next=/upload"
+            className="mt-5 inline-flex items-center rounded-md bg-[color:var(--color-accent)] px-5 py-3 text-white transition hover:opacity-90"
           >
-            Sign in with Google
-          </button>
+            Sign in
+          </Link>
         </div>
       </div>
     );
@@ -126,7 +148,7 @@ export default function SignPage() {
 
   if (!file) {
     return (
-      <div className="max-w-3xl mx-auto px-6 py-12">
+      <div className="mx-auto max-w-3xl px-6 py-12">
         <div className="rounded-lg border border-foreground/15 p-6">
           <h1 className="text-2xl font-semibold">No PDF selected</h1>
           <p className="mt-2 text-foreground/70">
@@ -134,7 +156,7 @@ export default function SignPage() {
           </p>
           <Link
             href="/upload"
-            className="mt-5 inline-flex items-center rounded-md px-5 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition"
+            className="mt-5 inline-flex items-center rounded-md bg-[color:var(--color-accent)] px-5 py-3 text-white transition hover:opacity-90"
           >
             Upload PDF
           </Link>
@@ -144,13 +166,13 @@ export default function SignPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12">
-      <h1 className="text-2xl font-semibold mb-4">Sign Document</h1>
-      <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
-        <div className="border rounded-md overflow-auto p-3">
-          <div className="flex flex-wrap items-center gap-3 mb-3">
+    <div className="mx-auto max-w-5xl px-6 py-12">
+      <h1 className="mb-4 text-2xl font-semibold">Sign Document</h1>
+      <div className="grid items-start gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="overflow-auto rounded-md border p-3">
+          <div className="mb-3 flex flex-wrap items-center gap-3">
             <button
-              className="rounded-md border px-3 py-1 hover:bg-foreground/5 transition-colors"
+              className="rounded-md border px-3 py-1 transition-colors hover:bg-foreground/5"
               onClick={() => handleScaleChange("decrease")}
               aria-label="Zoom out"
             >
@@ -158,15 +180,15 @@ export default function SignPage() {
             </button>
             <div className="text-sm">Zoom {(scale * 100).toFixed(0)}%</div>
             <button
-              className="rounded-md border px-3 py-1 hover:bg-foreground/5 transition-colors"
+              className="rounded-md border px-3 py-1 transition-colors hover:bg-foreground/5"
               onClick={() => handleScaleChange("increase")}
               aria-label="Zoom in"
             >
               +
             </button>
-            <div className="ml-0 sm:ml-4 flex items-center gap-2">
+            <div className="ml-0 flex items-center gap-2 sm:ml-4">
               <button
-                className="rounded-md border px-3 py-1 hover:bg-foreground/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-md border px-3 py-1 transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50"
                 onClick={() => handlePageChange("prev")}
                 disabled={page <= 1}
                 aria-label="Previous page"
@@ -175,7 +197,7 @@ export default function SignPage() {
               </button>
               <div className="text-sm">Page {page} / {numPages}</div>
               <button
-                className="rounded-md border px-3 py-1 hover:bg-foreground/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-md border px-3 py-1 transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50"
                 onClick={() => handlePageChange("next")}
                 disabled={page >= numPages}
                 aria-label="Next page"
@@ -184,17 +206,25 @@ export default function SignPage() {
               </button>
             </div>
             <button
-              className="rounded-md border px-3 py-1 hover:bg-foreground/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-md border px-3 py-1 transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50"
               onClick={handleAddText}
               disabled={!pdfSize}
-              aria-label="Add text to document"
+              aria-label="Add fill text to document"
             >
-              Add Text
+              Add Fill Text
+            </button>
+            <button
+              className="rounded-md border px-3 py-1 transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={handleAddCheckmark}
+              disabled={!pdfSize}
+              aria-label="Add checkbox mark to document"
+            >
+              Add Checkmark
             </button>
           </div>
 
           <div className="relative inline-block min-w-fit">
-            <PdfViewer onSize={setPdfSize} onMeta={({ numPages }) => setNumPages(numPages)} page={page} scale={scale} />
+            <PdfViewer onSize={handlePdfSize} onMeta={({ numPages }) => setNumPages(numPages)} page={page} scale={scale} />
             {pdfSize && (
               <DocumentFillLayer
                 pdfSize={pdfSize}
@@ -214,6 +244,12 @@ export default function SignPage() {
         </div>
         <div className="sticky top-6">
           <SignatureTools onSignature={handleSignature} />
+          <div className="mt-4 rounded-md border border-foreground/10 p-3">
+            <div className="mb-1 text-sm font-medium">Fill tools</div>
+            <div className="text-xs text-foreground/60">
+              Use Add Fill Text for names, dates, addresses, amounts, and form answers. Use Add Checkmark for checkbox-style fields. Drag each item into place before generating the final preview.
+            </div>
+          </div>
           {sigDataUrl && (
             <div className="mt-4 rounded-md border border-foreground/10 p-3">
               <div className="mb-2 text-sm font-medium">Signature rotation</div>
@@ -237,7 +273,7 @@ export default function SignPage() {
             </div>
           )}
           <div className="mt-4 text-xs text-foreground/60">
-            Use Add Text to fill the document. After creating a signature, drag it into place, resize it with the corner handle, and rotate it if the page is landscape.
+            Generate Preview before downloading. Credits are only used after the user confirms the final preview.
           </div>
           <div className="mt-4">
             <Finalizer
@@ -250,6 +286,7 @@ export default function SignPage() {
               rotation={signatureRotation}
               textElements={textElements}
               pdfViewportSize={pdfSize}
+              pdfViewportSizes={pdfPageSizes}
             />
           </div>
         </div>

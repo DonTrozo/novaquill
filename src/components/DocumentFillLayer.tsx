@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { type MouseEvent, type PointerEvent, useState } from "react";
 
 export type TextElement = {
   id: string;
@@ -84,7 +84,7 @@ export default function DocumentFillLayer({
   };
 
   const beginDrag = (
-    event: React.PointerEvent<HTMLDivElement>,
+    event: PointerEvent<HTMLDivElement>,
     state: Omit<DragState, "startClientX" | "startClientY">
   ) => {
     event.preventDefault();
@@ -93,7 +93,7 @@ export default function DocumentFillLayer({
     setDragState({ ...state, startClientX: event.clientX, startClientY: event.clientY });
   };
 
-  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (!dragState) return;
     const dx = event.clientX - dragState.startClientX;
     const dy = event.clientY - dragState.startClientY;
@@ -141,7 +141,7 @@ export default function DocumentFillLayer({
     setSelected(null);
   };
 
-  const handleCanvasClick = (event: React.MouseEvent<HTMLDivElement>) => {
+  const handleCanvasClick = (event: MouseEvent<HTMLDivElement>) => {
     if (!placementMode) {
       setSelected(null);
       return;

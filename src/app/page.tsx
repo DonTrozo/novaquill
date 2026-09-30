@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ChangeEvent, type DragEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useUpload } from "@/context/UploadContext";
@@ -86,13 +86,13 @@ export default function Home() {
     }
   };
 
-  const onSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const onSelect = (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0] || null;
     if (!selectedFile) return;
     handleFileSelect(selectedFile);
   };
 
-  const handleDrag = (event: React.DragEvent) => {
+  const handleDrag = (event: DragEvent) => {
     event.preventDefault();
     event.stopPropagation();
     if (event.type === "dragenter" || event.type === "dragover") {
@@ -102,7 +102,7 @@ export default function Home() {
     }
   };
 
-  const handleDrop = (event: React.DragEvent) => {
+  const handleDrop = (event: DragEvent) => {
     event.preventDefault();
     event.stopPropagation();
     setDragActive(false);

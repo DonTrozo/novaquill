@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { track } from "@/lib/track";
 
 export default function RegisterPage() {
@@ -11,7 +11,7 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     const res = await fetch("/api/register", {
@@ -61,5 +61,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-
-

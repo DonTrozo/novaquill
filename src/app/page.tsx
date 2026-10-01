@@ -1,9 +1,12 @@
 "use client";
 
+import SigningAllowanceNotice from "@/components/SigningAllowanceNotice";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import { useUpload } from "@/context/UploadContext";
+import { checkSigningAllowance } from "@/lib/signingAllowance";
 import { track } from "@/lib/track";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -70,6 +73,7 @@ export default function Home() {
     setError(null);
 
     try {
+      await checkSigningAllowance();
       const validation = await validateFile(selectedFile);
       if (!validation.isValid) {
         setError(validation.error || "Invalid file");
@@ -79,8 +83,8 @@ export default function Home() {
       setFile(selectedFile);
       track("home_upload_select");
       router.push("/sign");
-    } catch {
-      setError("Error processing file. Please try again.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Error processing file. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -141,12 +145,14 @@ export default function Home() {
           </a>
         </div>
 
+        <SigningAllowanceNotice />
+
         <section id="upload" className="rounded-2xl border border-foreground/15 bg-background p-6 shadow-sm">
           <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-2xl font-semibold">Upload your PDF</h2>
               <p className="mt-1 text-sm text-foreground/70">
-                Select a PDF and NovaQuill opens the editor immediately. Sign-in is required for credit tracking.
+                Select a PDF and NovaQuill opens the editor immediately. Sign in to use your saved signatures. Free accounts include 3 documents per month; Pro signing is unlimited.
               </p>
             </div>
             {!isSignedIn && !isAuthLoading && (
@@ -221,7 +227,7 @@ export default function Home() {
           </div>
           <div className="rounded-lg border border-foreground/10 p-5 bg-background/60">
             <div className="font-medium mb-1">2. Sign</div>
-            <div className="text-foreground/70 text-sm">Draw, type, or upload signature with real-time smoothing.</div>
+            <div className="text-foreground/70 text-sm">Sign directly on your PDF. Saved, typed and uploaded signatures are also available.</div>
           </div>
           <div className="rounded-lg border border-foreground/10 p-5 bg-background/60">
             <div className="font-medium mb-1">3. Download</div>
@@ -248,7 +254,7 @@ export default function Home() {
           <div className="grid sm:grid-cols-3 gap-6">
             <div className="rounded-lg border border-foreground/10 p-5">
               <div className="font-medium mb-1">Free & Pro</div>
-              <div className="text-foreground/70 text-sm">Free: 3 docs/month for accounts. Pro: unlimited cloud storage and signing.</div>
+              <div className="text-foreground/70 text-sm">Free: 3 documents per month. Pro: unlimited signing, cloud document storage and priority support.</div>
             </div>
             <div className="rounded-lg border border-foreground/10 p-5">
               <div className="font-medium mb-1">Private by design</div>
@@ -265,7 +271,7 @@ export default function Home() {
           <h2 className="text-2xl font-semibold">FAQ</h2>
           <details className="rounded-lg border border-foreground/10 p-4">
             <summary className="cursor-pointer font-medium">Do I need an account?</summary>
-            <div className="text-foreground/70 text-sm mt-2">Yes. Sign-in is required before uploading or signing so document credits can be tracked.</div>
+            <div className="text-foreground/70 text-sm mt-2">Yes. Sign-in is required before uploading or signing to use your saved signatures and account.</div>
           </details>
           <details className="rounded-lg border border-foreground/10 p-4">
             <summary className="cursor-pointer font-medium">Are there watermarks?</summary>

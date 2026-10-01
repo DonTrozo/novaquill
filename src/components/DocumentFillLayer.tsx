@@ -14,7 +14,7 @@ export type TextElement = {
   fontSize: number;
 };
 
-export type EditorTool = "select" | "signature" | "text" | "initials" | "date" | "checkbox";
+export type EditorTool = "select" | "draw" | "signature" | "text" | "initials" | "date" | "checkbox";
 
 type Size = { width: number; height: number };
 type Point = { x: number; y: number };
@@ -199,7 +199,7 @@ export default function DocumentFillLayer({
             }}
           >
             <div
-              className="h-full w-full cursor-move"
+              className="h-full w-full cursor-move touch-none"
               onPointerDown={(event) => {
                 setSelected({ kind: "text", id: item.id });
                 beginDrag(event, {
@@ -215,6 +215,8 @@ export default function DocumentFillLayer({
             >
               <input
                 value={item.text}
+                autoFocus={item.text.length === 0}
+                aria-label={`Document text on page ${item.page}`}
                 onChange={(event) => updateText(item.id, { text: event.target.value })}
                 onPointerDown={(event) => event.stopPropagation()}
                 placeholder="Enter text"
@@ -224,7 +226,7 @@ export default function DocumentFillLayer({
             </div>
             {isSelected && !placementMode && (
               <div
-                className="absolute -bottom-2 -right-2 h-4 w-4 cursor-se-resize rounded-full border border-[color:var(--color-accent)] bg-background shadow"
+                className="absolute -bottom-2 -right-2 h-4 w-4 cursor-se-resize touch-none rounded-full border border-[color:var(--color-accent)] bg-background shadow"
                 onPointerDown={(event) =>
                   beginDrag(event, {
                     target: "text",
@@ -259,7 +261,7 @@ export default function DocumentFillLayer({
           }}
         >
           <div
-            className="h-full w-full cursor-move"
+            className="h-full w-full cursor-move touch-none"
             onPointerDown={(event) => {
               setSelected({ kind: "signature" });
               beginDrag(event, {
@@ -284,7 +286,7 @@ export default function DocumentFillLayer({
           </div>
           {selected?.kind === "signature" && !placementMode && (
             <div
-              className="absolute -bottom-2 -right-2 h-4 w-4 cursor-se-resize rounded-full border border-[color:var(--color-accent)] bg-background shadow"
+              className="absolute -bottom-2 -right-2 h-4 w-4 cursor-se-resize touch-none rounded-full border border-[color:var(--color-accent)] bg-background shadow"
               onPointerDown={(event) =>
                 beginDrag(event, {
                   target: "signature",

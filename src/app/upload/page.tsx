@@ -1,9 +1,12 @@
 "use client";
 
+import SigningAllowanceNotice from "@/components/SigningAllowanceNotice";
+
 import { type ChangeEvent, type DragEvent, useState } from "react";
 import { useUpload } from "@/context/UploadContext";
 import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
+import { checkSigningAllowance } from "@/lib/signingAllowance";
 import { track } from "@/lib/track";
 
 // Constants
@@ -76,6 +79,7 @@ export default function UploadPage() {
     setError(null);
     
     try {
+      await checkSigningAllowance();
       const validation = await validateFile(selectedFile);
       if (!validation.isValid) {
         setError(validation.error || "Invalid file");
@@ -87,8 +91,8 @@ export default function UploadPage() {
       setFile(selectedFile);
       track("upload_select");
       router.push("/sign");
-    } catch {
-      setError("Error processing file. Please try again.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Error processing file. Please try again.");
       setLocalFile(null);
     } finally {
       setIsLoading(false);
@@ -143,13 +147,14 @@ export default function UploadPage() {
   return (
     <div className="max-w-3xl mx-auto px-6 py-12">
       <h1 className="text-2xl font-semibold mb-4">Upload PDF</h1>
+      <div className="mb-4"><SigningAllowanceNotice /></div>
       
       <div className="rounded-lg border border-foreground/15 p-6">
         {!isSignedIn && !isAuthLoading && (
           <div className="mb-6 rounded-lg border border-foreground/10 bg-foreground/5 p-4">
             <div className="font-medium">Sign in required</div>
             <p className="mt-1 text-sm text-foreground/70">
-              Sign in before uploading so NovaQuill can track your document credits and saved documents.
+              Sign in before uploading to use your saved signatures and account.
             </p>
             <button
               type="button"

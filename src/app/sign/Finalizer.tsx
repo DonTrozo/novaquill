@@ -1,9 +1,12 @@
 "use client";
 
-import { PDFDocument, StandardFonts, degrees, rgb } from "pdf-lib";
+import { documentVersion } from "@/lib/documentVersion";
+import type { InkStroke } from "@/lib/documentInk";
+import { buildSignedPdf } from "@/lib/buildSignedPdf";
+import { PdfDocumentPreview } from "@/components/PdfViewer";
 import { useUpload } from "@/context/UploadContext";
 import { track } from "@/lib/track";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import LoadingSpinnerSmall from "@/components/LoadingSpinner";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
@@ -26,6 +29,7 @@ type PreviewState = {
   url: string;
   filename: string;
   version: string;
+  creditKey: string;
 } | null;
 
 export default function Finalizer({
@@ -37,6 +41,8 @@ export default function Finalizer({
   height: signatureHeight = 80,
   rotation = 0,
   textElements = [],
+  inkStrokes = [],
+  drawing = false,
   pdfViewportSize,
   pdfViewportSizes = {},
 }: {
@@ -48,17 +54,21 @@ export default function Finalizer({
   height?: number;
   rotation?: number;
   textElements?: TextElement[];
+  inkStrokes?: InkStroke[];
+  drawing?: boolean;
   pdfViewportSize?: ViewportSize | null;
   pdfViewportSizes?: Record<number, ViewportSize>;
 }) {
   const { file } = useUpload();
+  const downloadInProgress = useRef(false);
+  const chargedVersions = useRef(new Set<string>());
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState>(null);
 
   const hasDrawableText = textElements.some((item) => item.text.trim().length > 0);
-  const canFinalize = Boolean(sigDataUrl) || hasDrawableText;
+  const canFinalize = Boolean(sigDataUrl) || hasDrawableText || inkStrokes.length > 0;
 
   const currentVersion = useMemo(
     () =>
@@ -74,11 +84,18 @@ export default function Finalizer({
         signatureHeight,
         rotation,
         textElements,
+        inkStrokes,
         pdfViewportSize,
         pdfViewportSizes,
       }),
-    [file, sigDataUrl, page, x, y, width, signatureHeight, rotation, textElements, pdfViewportSize, pdfViewportSizes]
+    [file, sigDataUrl, page, x, y, width, signatureHeight, rotation, textElements, inkStrokes, pdfViewportSize, pdfViewportSizes]
   );
+
+  const creditKey = documentVersion({
+    fileName: file?.name, fileSize: file?.size, fileLastModified: file?.lastModified,
+    sigDataUrl, page, x, y, width, height: signatureHeight, rotation,
+    textElements, inkStrokes, viewportSizes: pdfViewportSizes,
+  });
 
   const isPreviewCurrent = Boolean(preview && preview.version === currentVersion);
 
@@ -104,73 +121,14 @@ export default function Finalizer({
 
   async function buildFinalPdfBlob() {
     if (!file) throw new Error("Missing file");
-
-    const pdfBytes = new Uint8Array(await file.arrayBuffer());
-    const pdfDoc = await PDFDocument.load(pdfBytes);
-    const pages = pdfDoc.getPages();
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-
-    const getPageScales = (targetPageIndex: number) => {
-      const target = pages[targetPageIndex]!;
-      const targetSize = target.getSize();
-      const pageNumber = targetPageIndex + 1;
-      const viewportSize = pdfViewportSizes[pageNumber] || (pageNumber === page ? pdfViewportSize : null);
-      const scaleX = viewportSize ? targetSize.width / viewportSize.width : 1;
-      const scaleY = viewportSize ? targetSize.height / viewportSize.height : 1;
-      return { target, targetSize, scaleX, scaleY };
-    };
-
-    textElements.forEach((item) => {
-      const text = item.text.trim();
-      if (!text) return;
-      const targetPageIndex = Math.max(0, Math.min(item.page - 1, pages.length - 1));
-      const { target, targetSize, scaleX, scaleY } = getPageScales(targetPageIndex);
-      target.drawText(text, {
-        x: item.x * scaleX,
-        y: targetSize.height - (item.y + item.height) * scaleY + 8 * scaleY,
-        size: item.fontSize * scaleY,
-        font,
-        color: rgb(0, 0, 0),
-        maxWidth: item.width * scaleX,
-      });
+    const out = await buildSignedPdf({
+      pdfBytes: new Uint8Array(await file.arrayBuffer()),
+      sigDataUrl, page, x, y, width, signatureHeight, rotation,
+      textElements, inkStrokes, pdfViewportSize, pdfViewportSizes,
     });
-
-    if (sigDataUrl) {
-      const pngBytes = await fetch(sigDataUrl).then((response) => {
-        if (!response.ok) throw new Error("Failed to fetch signature image");
-        return response.arrayBuffer();
-      });
-
-      const png = await pdfDoc.embedPng(pngBytes);
-      const targetPageIndex = Math.max(0, Math.min(page - 1, pages.length - 1));
-      const { target, targetSize, scaleX, scaleY } = getPageScales(targetPageIndex);
-      const drawnWidth = width * scaleX;
-      const drawnHeight = signatureHeight * scaleY;
-      const centerX = (x + width / 2) * scaleX;
-      const centerY = targetSize.height - (y + signatureHeight / 2) * scaleY;
-      const radians = (rotation * Math.PI) / 180;
-      const offsetX = (drawnWidth / 2) * Math.cos(radians) - (drawnHeight / 2) * Math.sin(radians);
-      const offsetY = (drawnWidth / 2) * Math.sin(radians) + (drawnHeight / 2) * Math.cos(radians);
-
-      target.drawImage(png, {
-        x: centerX - offsetX,
-        y: centerY - offsetY,
-        width: drawnWidth,
-        height: drawnHeight,
-        rotate: degrees(rotation),
-      });
-    }
-
-    try {
-      pdfDoc.getForm().flatten();
-    } catch {
-      // Ignore PDFs without AcroForm fields.
-    }
-
-    const out = await pdfDoc.save();
-    const abCopy = new ArrayBuffer(out.byteLength);
-    new Uint8Array(abCopy).set(out);
-    return new Blob([abCopy], { type: "application/pdf" });
+    const copy = new ArrayBuffer(out.byteLength);
+    new Uint8Array(copy).set(out);
+    return new Blob([copy], { type: "application/pdf" });
   }
 
   async function onPreview() {
@@ -189,7 +147,7 @@ export default function Finalizer({
       const url = URL.createObjectURL(blob);
       setPreview((current) => {
         if (current?.url) URL.revokeObjectURL(current.url);
-        return { blob, url, filename, version: currentVersion };
+        return { blob, url, filename, version: currentVersion, creditKey };
       });
       track("finalize_preview");
     } catch (err) {
@@ -206,8 +164,10 @@ export default function Finalizer({
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = filename;
+    document.body.appendChild(anchor);
     anchor.click();
-    URL.revokeObjectURL(url);
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 
   async function onConfirmDownload() {
@@ -216,41 +176,43 @@ export default function Finalizer({
       return;
     }
 
+    if (downloadInProgress.current) return;
+    downloadInProgress.current = true;
     setIsConfirming(true);
     setError(null);
 
     try {
-      const usageResponse = await fetch("/api/usage", { method: "POST" });
-      if (usageResponse.status === 402) {
-        setError("Free limit reached (3/month). Please upgrade to Pro.");
-        return;
+      // Previews and repeat downloads of the same completed version do not
+      // spend another credit. Check the server before releasing a new output.
+      if (!chargedVersions.current.has(preview.creditKey)) {
+        const response = await fetch("/api/usage", { method: "POST" });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          const message = response.status === 401 ? "Please sign in again before downloading." : payload.error || "Could not confirm your document allowance. Please try again.";
+          setError(message);
+          return;
+        }
+        chargedVersions.current.add(preview.creditKey);
+        window.dispatchEvent(new Event("novaquill:usage-changed"));
       }
-      if (usageResponse.status === 401) {
-        setError("Please sign in again before downloading.");
-        return;
-      }
-      if (!usageResponse.ok) {
-        setError("Could not confirm your document credit. Please try again.");
-        return;
-      }
-
-      try {
-        const form = new FormData();
-        form.append("file", preview.blob, preview.filename);
-        form.append("filename", preview.filename);
-        const storageResponse = await fetch("/api/documents/create", { method: "POST", body: form });
-        if (!storageResponse.ok) console.warn("Document storage failed:", storageResponse.status);
-      } catch (storageError) {
-        console.warn("Document storage error:", storageError);
-      }
+      downloadBlob(preview.blob, preview.filename);
+      const form = new FormData();
+      form.append("file", preview.blob, preview.filename);
+      form.append("filename", preview.filename);
+      void fetch("/api/documents/create", { method: "POST", body: form })
+        .then((response) => {
+          if (response.status === 402) return; // Cloud storage is a Pro feature.
+          if (!response.ok) setError("Your PDF was downloaded, but could not be saved to your cloud account.");
+        })
+        .catch(() => setError("Your PDF was downloaded, but cloud storage is unavailable."));
 
       track("finalize_download");
-      downloadBlob(preview.blob, preview.filename);
     } catch (err) {
       console.error("PDF confirmation error:", err);
       const message = err instanceof Error ? err.message : "Failed to confirm download";
       setError(`Error: ${message}. Please try again.`);
     } finally {
+      downloadInProgress.current = false;
       setIsConfirming(false);
     }
   }
@@ -261,14 +223,14 @@ export default function Finalizer({
         <div className="rounded-lg border border-red-200 bg-red-50 p-3">
           <div className="flex items-center gap-2 text-sm text-red-700">
             <span>⚠️</span>
-            <span>{error}</span>
+            <span>{error} {error.includes("Upgrade to Pro") && <a href="/pricing" className="underline font-medium">View Pro plans</a>}</span>
           </div>
         </div>
       )}
 
       <button
         onClick={onPreview}
-        disabled={!canFinalize || isProcessing || isConfirming}
+        disabled={!canFinalize || drawing || isProcessing || isConfirming}
         className="w-full rounded-md bg-[color:var(--color-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         aria-label="Finish and preview signed PDF"
       >
@@ -294,7 +256,7 @@ export default function Finalizer({
               <div>
                 <h2 className="text-lg font-semibold">Review your signed PDF</h2>
                 <p className="mt-1 text-sm text-foreground/70">
-                  Check placement here first. Your credit is only used when you download the final PDF.
+                  Check every page before downloading. A free document credit is used only on the first download of this completed version. Pro has unlimited signing.
                 </p>
               </div>
               <button
@@ -307,11 +269,7 @@ export default function Finalizer({
               </button>
             </div>
             <div className="min-h-0 flex-1 p-4">
-              <iframe
-                title="Completed PDF preview"
-                src={preview.url}
-                className="h-[65vh] w-full rounded-md border border-foreground/10 bg-white"
-              />
+              <PdfDocumentPreview blob={preview.blob} />
             </div>
             <div className="grid gap-2 border-t border-foreground/10 p-4 sm:flex sm:items-center sm:justify-end">
               <button

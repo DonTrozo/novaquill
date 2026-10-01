@@ -1,22 +1,16 @@
 "use client";
 
-import Finalizer from "@/app/sign/Finalizer";
-import PdfViewer from "@/components/PdfViewer";
-import SignatureTools from "@/components/SignatureTools";
+import SigningAllowanceNotice from "@/components/SigningAllowanceNotice";
+
 import { useUpload } from "@/context/UploadContext";
+import { checkSigningAllowance } from "@/lib/signingAllowance";
 import { track } from "@/lib/track";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46]; // %PDF
-const INITIAL_SIGNATURE_POSITION = { x: 24, y: 24 };
-const INITIAL_SIGNATURE_WIDTH = 220;
-const MIN_SCALE = 0.6;
-const MAX_SCALE = 2.8;
-const SCALE_STEP = 0.1;
 
 type UsageState = {
   subscription: "FREE" | "PRO" | "ANON";
@@ -40,18 +34,9 @@ export default function DashboardPage() {
   const [isUploadProcessing, setIsUploadProcessing] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
-  const [sigDataUrl, setSigDataUrl] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [numPages, setNumPages] = useState(1);
-  const [scale, setScale] = useState(1.2);
-  const [sigPos, setSigPos] = useState(INITIAL_SIGNATURE_POSITION);
-  const [sigWidth, setSigWidth] = useState(INITIAL_SIGNATURE_WIDTH);
-  const [isDraggingSignature, setIsDraggingSignature] = useState(false);
   const [state, setState] = useState<UsageState | null>(null);
   const [docs, setDocs] = useState<Array<{ id: string; filename: string; createdAt: string }>>([]);
   const [analytics, setAnalytics] = useState<Array<{ name: string; count: number }>>([]);
-  const dragOffsetRef = useRef<{ x: number; y: number } | null>(null);
-  const viewerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -68,7 +53,6 @@ export default function DashboardPage() {
 
   const sub = state?.subscription ?? "ANON";
   const used = state?.used ?? 0;
-  const limit = state?.limit;
 
   useEffect(() => {
     fetch("/api/documents")
@@ -107,12 +91,10 @@ export default function DashboardPage() {
         throw new Error("The selected file is not a valid PDF.");
       }
 
+      await checkSigningAllowance();
       setFile(selectedFile);
-      setPage(1);
-      setScale(1.2);
-      setSigPos(INITIAL_SIGNATURE_POSITION);
-      setSigDataUrl(null);
       track("dashboard_upload_select");
+      router.push("/sign");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to process file";
       setUploadError(message);
@@ -146,52 +128,6 @@ export default function DashboardPage() {
     handleFileSelect(dropped);
   };
 
-  const handleScaleChange = (direction: "increase" | "decrease") => {
-    setScale((current) =>
-      direction === "increase"
-        ? Math.min(MAX_SCALE, current + SCALE_STEP)
-        : Math.max(MIN_SCALE, current - SCALE_STEP)
-    );
-  };
-
-  const handlePageChange = (direction: "next" | "prev") => {
-    setPage((current) =>
-      direction === "next" ? Math.min(numPages, current + 1) : Math.max(1, current - 1)
-    );
-  };
-
-  const handleSignaturePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    const overlayRect = e.currentTarget.getBoundingClientRect();
-    dragOffsetRef.current = {
-      x: e.clientX - overlayRect.left,
-      y: e.clientY - overlayRect.top,
-    };
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setIsDraggingSignature(true);
-  };
-
-  const handleSignaturePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDraggingSignature || !viewerRef.current) return;
-    const containerRect = viewerRef.current.getBoundingClientRect();
-    const overlayWidth = e.currentTarget.offsetWidth;
-    const overlayHeight = e.currentTarget.offsetHeight;
-    const offset = dragOffsetRef.current ?? { x: overlayWidth / 2, y: overlayHeight / 2 };
-
-    const x = e.clientX - containerRect.left - offset.x;
-    const y = e.clientY - containerRect.top - offset.y;
-    const boundedX = Math.max(0, Math.min(x, containerRect.width - overlayWidth));
-    const boundedY = Math.max(0, Math.min(y, containerRect.height - overlayHeight));
-    setSigPos({ x: boundedX, y: boundedY });
-  };
-
-  const handleSignaturePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    dragOffsetRef.current = null;
-    setIsDraggingSignature(false);
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
-  };
-
   if (status === "loading") {
     return (
       <div className="max-w-5xl mx-auto px-6 py-12">
@@ -203,6 +139,7 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8 md:py-10 space-y-8">
+      <SigningAllowanceNotice />
       <section className="rounded-2xl border border-foreground/15 p-6 md:p-8 bg-gradient-to-b from-[color:var(--color-accent)]/10 via-background to-background">
         <div className="grid lg:grid-cols-[1.1fr_1fr] gap-6 items-start">
           <div className="space-y-5">
@@ -213,15 +150,14 @@ export default function DashboardPage() {
               Upload document to sign
             </h1>
             <p className="text-foreground/75 max-w-xl">
-              Fast path: upload a PDF, pick a saved signature or draw a new one with stroke cleanup,
-              place it, and download your signed document in minutes.
+              Upload a PDF, sign directly on the document, preview it and download. You can also use a saved, typed or uploaded signature.
             </p>
             <ol className="grid gap-2 text-sm text-foreground/80">
               <li><span className="font-medium">1.</span> Upload a file to sign</li>
-              <li><span className="font-medium">2.</span> Choose a saved signature or draw a new one</li>
-              <li><span className="font-medium">3.</span> Optionally refine drawing with cleanup assist</li>
-              <li><span className="font-medium">4.</span> Place signature on the document</li>
-              <li><span className="font-medium">5.</span> Save your signature for next time</li>
+              <li><span className="font-medium">2.</span> Sign directly where your signature belongs</li>
+              <li><span className="font-medium">3.</span> Undo or redo a stroke if needed</li>
+              <li><span className="font-medium">4.</span> Review the completed PDF</li>
+              <li><span className="font-medium">5.</span> Optionally save your handwriting for next time</li>
               <li><span className="font-medium">6.</span> Download the signed PDF</li>
             </ol>
           </div>
@@ -277,123 +213,13 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="grid xl:grid-cols-[1fr_360px] gap-6 items-start">
-        <div className="rounded-xl border border-foreground/15 p-4 md:p-5">
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <span className="text-xs rounded-full border px-3 py-1">Step 4: Place signature</span>
-            <button
-              className="rounded-md border px-3 py-1 hover:bg-foreground/5 transition-colors"
-              onClick={() => handleScaleChange("decrease")}
-              aria-label="Zoom out"
-              disabled={!file}
-            >
-              -
-            </button>
-            <div className="text-sm">Zoom {(scale * 100).toFixed(0)}%</div>
-            <button
-              className="rounded-md border px-3 py-1 hover:bg-foreground/5 transition-colors"
-              onClick={() => handleScaleChange("increase")}
-              aria-label="Zoom in"
-              disabled={!file}
-            >
-              +
-            </button>
-            <button
-              className="rounded-md border px-3 py-1 hover:bg-foreground/5 transition-colors"
-              onClick={() => handlePageChange("prev")}
-              disabled={!file || page <= 1}
-              aria-label="Previous page"
-            >
-              Prev
-            </button>
-            <div className="text-sm">Page {page} / {numPages}</div>
-            <button
-              className="rounded-md border px-3 py-1 hover:bg-foreground/5 transition-colors"
-              onClick={() => handlePageChange("next")}
-              disabled={!file || page >= numPages}
-              aria-label="Next page"
-            >
-              Next
-            </button>
-            <div className="ml-auto flex items-center gap-2">
-              <label htmlFor="signature-width" className="text-xs text-foreground/70">Signature size</label>
-              <input
-                id="signature-width"
-                type="range"
-                min={120}
-                max={320}
-                value={sigWidth}
-                onChange={(e) => setSigWidth(Number(e.target.value))}
-                disabled={!sigDataUrl}
-                aria-label="Signature width"
-              />
-            </div>
-          </div>
-
-          <div ref={viewerRef} className="relative rounded-lg border border-foreground/15 p-3 min-h-[420px] overflow-auto bg-foreground/[0.02]">
-            <PdfViewer onMeta={({ numPages: totalPages }) => setNumPages(totalPages)} page={page} scale={scale} />
-            {sigDataUrl && (
-              <div
-                className={`absolute select-none ${isDraggingSignature ? "cursor-grabbing" : "cursor-grab"}`}
-                style={{ left: sigPos.x, top: sigPos.y, width: sigWidth }}
-                onPointerDown={handleSignaturePointerDown}
-                onPointerMove={handleSignaturePointerMove}
-                onPointerUp={handleSignaturePointerUp}
-                onPointerCancel={handleSignaturePointerUp}
-                role="button"
-                tabIndex={0}
-                aria-label="Drag signature placement"
-              >
-                <Image
-                  src={sigDataUrl}
-                  alt="Selected signature preview"
-                  width={sigWidth}
-                  height={Math.round((sigWidth * 2) / 5)}
-                  className="w-full h-auto pointer-events-none"
-                  unoptimized
-                />
-              </div>
-            )}
-          </div>
-
-          {!file && (
-            <p className="text-sm text-foreground/65 mt-3">
-              Upload a document above to unlock the signing workspace.
-            </p>
-          )}
-        </div>
-
-        <aside className="space-y-4 xl:sticky xl:top-6">
-          <div className="rounded-xl border border-foreground/15 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold">Step 2-3: Signature</h2>
-              <span className="text-xs text-foreground/60">Saved + draw</span>
-            </div>
-            <SignatureTools
-              onSignature={(value) => {
-                setSigDataUrl(value);
-                track("dashboard_signature_ready");
-              }}
-            />
-          </div>
-
-          <div className="rounded-xl border border-foreground/15 p-4">
-            <h3 className="font-semibold mb-2">Step 6: Download signed PDF</h3>
-            <p className="text-sm text-foreground/70 mb-3">
-              Place the signature on the page, then finalize and download.
-            </p>
-            <Finalizer sigDataUrl={sigDataUrl} page={page} x={sigPos.x} y={sigPos.y} width={sigWidth} />
-          </div>
-        </aside>
-      </section>
-
       <section className="rounded-xl border border-foreground/15 p-5">
         <h2 className="text-lg font-semibold mb-4">Account overview</h2>
         <div className="grid gap-4 sm:grid-cols-3 mb-4">
           <div className="rounded-lg border border-foreground/15 p-4">
             <div className="text-xs uppercase tracking-wide text-foreground/60">Usage</div>
             <div className="text-xl font-semibold mt-1">
-              {sub === "PRO" ? `Pro: ${used}` : `${used} / ${limit ?? 0}`}
+              {sub === "PRO" ? `${used} documents · Unlimited signing` : `${used} / ${state?.limit ?? 3} documents this month`}
             </div>
           </div>
           <div className="rounded-lg border border-foreground/15 p-4">

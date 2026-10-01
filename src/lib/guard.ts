@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import { allowedRequestOrigin } from "./originPolicy";
 
 // Optional Redis client for distributed rate limiting
 let redis: Redis | null = null;
@@ -34,24 +35,7 @@ export async function rateLimitOk(key: string, limit = 20, perMs = 60_000): Prom
 }
 
 export function isAllowedOrigin(req: Request): boolean {
-	const origin = req.headers.get("origin");
-	// Allow same-origin requests
-	if (!origin) return true;
-	try {
-		const url = new URL(origin);
-		const allowed = process.env.NEXTAUTH_URL || "http://localhost:3000";
-		const allowedHost = new URL(allowed).host;
-		if (url.host === allowedHost) return true;
-		if (process.env.NODE_ENV === "development" && url.hostname === "localhost") return true;
-		const additionalOrigins = process.env.ALLOWED_ORIGINS;
-		if (additionalOrigins) {
-			const allowedOrigins = additionalOrigins.split(",").map((o) => o.trim());
-			if (allowedOrigins.includes(url.host)) return true;
-		}
-		return false;
-	} catch {
-		return false;
-	}
+	return allowedRequestOrigin(req, [process.env.NEXTAUTH_URL || "http://localhost:3000", ...(process.env.ALLOWED_ORIGINS || "").split(",")], process.env.NODE_ENV === "development");
 }
 
 export function cleanupRateLimits(): void {

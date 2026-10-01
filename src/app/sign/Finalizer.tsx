@@ -7,6 +7,7 @@ import { PdfDocumentPreview } from "@/components/PdfViewer";
 import { useUpload } from "@/context/UploadContext";
 import { track } from "@/lib/track";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import LoadingSpinnerSmall from "@/components/LoadingSpinner";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
@@ -249,7 +250,7 @@ export default function Finalizer({
         </div>
       )}
 
-      {preview && isPreviewCurrent && (
+      {preview && isPreviewCurrent && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-xl bg-background shadow-2xl">
             <div className="flex flex-col gap-2 border-b border-foreground/10 p-4 sm:flex-row sm:items-start sm:justify-between">
@@ -290,7 +291,7 @@ export default function Finalizer({
               </button>
             </div>
           </div>
-        </div>
+        </div>, document.body
       )}
 
       {!canFinalize && (

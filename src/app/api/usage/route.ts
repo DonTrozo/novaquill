@@ -3,9 +3,7 @@ import { isAllowedOrigin, rateLimitOk } from "@/lib/guard";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-function ym(date = new Date()) {
-	return date.getFullYear() * 100 + (date.getMonth() + 1);
-}
+import { FREE_DOCUMENT_LIMIT, reserveDocumentCredit, usageMonth } from "@/lib/signingQuota";
 
 export async function GET() {
 	// Lightweight rate limit for anonymous polling
@@ -16,10 +14,10 @@ export async function GET() {
 	const user = await prisma.user.findUnique({ where: { email: session.user.email } });
 	if (!user) return new Response("Not found", { status: 404 });
 	const isPro = user.subscription === "PRO";
-	const currentYm = ym();
+	const currentYm = usageMonth();
 	const used = user.usageYearMonth === currentYm ? user.docsUsedThisMonth : 0;
 	return new Response(
-		JSON.stringify({ subscription: isPro ? "PRO" : "FREE", used, limit: isPro ? null : 3 }),
+		JSON.stringify({ subscription: isPro ? "PRO" : "FREE", used, limit: isPro ? null : FREE_DOCUMENT_LIMIT }),
 		{ status: 200 }
 	);
 }
@@ -42,21 +40,15 @@ export async function POST(request: Request) {
 	if (!(await rateLimitOk(`usage:user:${user.id}`, 30, 60_000))) {
 		return new Response(JSON.stringify({ error: "Rate limit" }), { status: 429 });
 	}
-	const currentYm = ym();
-	const isPro = user.subscription === "PRO";
-	const currentUsed = user.usageYearMonth === currentYm ? user.docsUsedThisMonth : 0;
-	if (!isPro && currentUsed >= 3) {
-		return new Response(JSON.stringify({ error: "Limit reached" }), { status: 402 });
-	}
-	const updated = await prisma.user.update({
-		where: { id: user.id },
-		data: {
-			usageYearMonth: currentYm,
-			docsUsedThisMonth: currentUsed + 1,
+	const result = await reserveDocumentCredit({
+		read: () => prisma.user.findUnique({ where: { id: user.id }, select: { subscription: true, usageYearMonth: true, docsUsedThisMonth: true } }),
+		compareAndSet: async (previous, month, used) => {
+			const updated = await prisma.user.updateMany({
+				where: { id: user.id, subscription: previous.subscription, usageYearMonth: previous.usageYearMonth, docsUsedThisMonth: previous.docsUsedThisMonth },
+				data: { usageYearMonth: month, docsUsedThisMonth: used },
+			});
+			return updated.count === 1;
 		},
-		select: { docsUsedThisMonth: true },
 	});
-	return new Response(JSON.stringify({ used: updated.docsUsedThisMonth }), { status: 200 });
+	return Response.json(result, { status: result.status });
 }
-
-

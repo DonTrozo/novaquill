@@ -21,16 +21,18 @@ export default function PricingPage() {
     <div className="max-w-6xl mx-auto px-6 py-12">
       <h1 className="text-2xl font-semibold mb-2">Pricing</h1>
       <p className="mb-8 max-w-2xl text-foreground/70">
-        Start free, then upgrade when you need unlimited signing and storage. Annual Pro gives the same features at a lower effective monthly price.
+        Start with 3 free documents per month. Upgrade for unlimited signing, cloud document storage and priority support. Annual Pro gives the same features at a lower effective monthly price.
       </p>
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="rounded-lg border border-foreground/15 p-6">
           <div className="text-xl font-medium">Free</div>
           <div className="text-3xl font-semibold mt-1">€0</div>
-          <div className="text-sm text-foreground/60">for light use</div>
+          <div className="text-sm text-foreground/60">for occasional signing</div>
           <ul className="mt-3 text-sm text-foreground/80 list-disc list-inside">
-            <li>3 documents/month</li>
-            <li>Account required for credit tracking</li>
+            <li>3 completed documents per month</li>
+            <li>Text, dates, initials and checkboxes</li>
+            <li>Reusable signatures</li>
+            <li>Account required for saved signatures</li>
             <li>No branding or watermarks</li>
           </ul>
           <div className="mt-6">

@@ -12,11 +12,10 @@ function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next");
-  const callbackUrl = next || "/dashboard";
   const { status } = useSession();
-  
+
   if (status === "authenticated") {
-    router.push(callbackUrl);
+    router.push(next || "/dashboard");
   }
 
   async function onSubmit(e: FormEvent) {
@@ -28,7 +27,7 @@ function LoginForm() {
       return;
     }
     track("signup_login");
-    router.push(callbackUrl);
+    router.push(next || "/dashboard");
   }
 
   if (status === "authenticated") {
@@ -59,8 +58,8 @@ function LoginForm() {
         <button className="rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white">Log in</button>
       </form>
       <div className="mt-4 grid gap-2">
-        <button onClick={() => signIn("google", { callbackUrl })} className="rounded-md px-4 py-2 border border-foreground/20">Continue with Google</button>
-        <button onClick={() => signIn("apple", { callbackUrl })} className="rounded-md px-4 py-2 border border-foreground/20">Continue with Apple</button>
+        <button onClick={() => signIn("google")} className="rounded-md px-4 py-2 border border-foreground/20">Continue with Google</button>
+        <button onClick={() => signIn("apple")} className="rounded-md px-4 py-2 border border-foreground/20">Continue with Apple</button>
       </div>
       <div className="mt-4 text-sm">
         No account? <a className="underline" href="/register">Register</a>

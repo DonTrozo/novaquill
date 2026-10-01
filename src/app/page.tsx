@@ -1,8 +1,8 @@
 "use client";
 
-import { type ChangeEvent, type DragEvent, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { useUpload } from "@/context/UploadContext";
 import { track } from "@/lib/track";
 
@@ -23,7 +23,7 @@ export default function Home() {
   const requestSignIn = () => {
     setError("Please sign in before uploading a PDF.");
     track("home_upload_signin_required");
-    router.push("/login?next=/");
+    void signIn("google", { callbackUrl: "/" });
   };
 
   const validatePdfHeader = async (file: File): Promise<boolean> => {
@@ -86,13 +86,13 @@ export default function Home() {
     }
   };
 
-  const onSelect = (event: ChangeEvent<HTMLInputElement>) => {
+  const onSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0] || null;
     if (!selectedFile) return;
     handleFileSelect(selectedFile);
   };
 
-  const handleDrag = (event: DragEvent) => {
+  const handleDrag = (event: React.DragEvent) => {
     event.preventDefault();
     event.stopPropagation();
     if (event.type === "dragenter" || event.type === "dragover") {
@@ -102,7 +102,7 @@ export default function Home() {
     }
   };
 
-  const handleDrop = (event: DragEvent) => {
+  const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();
     event.stopPropagation();
     setDragActive(false);
@@ -155,7 +155,7 @@ export default function Home() {
                 onClick={requestSignIn}
                 className="inline-flex items-center justify-center rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition"
               >
-                Sign in
+                Sign in with Google
               </button>
             )}
           </div>

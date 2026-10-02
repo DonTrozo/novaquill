@@ -27,21 +27,21 @@ export function useSigningUsage() {
   return { usage, error, checking, refresh, status };
 }
 
-export function SigningUsageNotice({ state }: { state: ReturnType<typeof useSigningUsage> }) {
+export function SigningUsageNotice({ state, compact = false }: { state: ReturnType<typeof useSigningUsage>; compact?: boolean }) {
   const { usage, error, checking, refresh, status } = state;
   if (status !== "authenticated") return null;
   const remaining = usage?.limit == null ? null : Math.max(0, usage.limit - usage.used);
-  return <div className="rounded-md border border-foreground/15 p-3 text-sm" role="status">
+  return <div className={compact ? "text-xs text-foreground/60" : "rounded-md border border-foreground/15 p-3 text-sm"} role="status">
     {checking ? "Checking your document allowance…" : error ? <>
       {error} <button type="button" onClick={() => void refresh()} className="underline">Retry</button>
     </> : usage?.subscription === "PRO" ? "Pro · Unlimited signing" : <>
-      {remaining} of {usage?.limit} free documents remaining this month. Previews do not use credits. {" "}
-      <Link href="/pricing" className="font-medium underline">Upgrade to Pro</Link>
+      {remaining} of {usage?.limit} free documents remaining this month.{!compact && " Previews do not use credits."} {" "}
+      {(!compact || remaining === 0) && <Link href="/pricing" className="font-medium underline">Upgrade to Pro</Link>}
     </>}
   </div>;
 }
 
-export default function SigningAllowanceNotice() {
+export default function SigningAllowanceNotice({ compact = false }: { compact?: boolean }) {
   const state = useSigningUsage();
-  return <SigningUsageNotice state={state} />;
+  return <SigningUsageNotice state={state} compact={compact} />;
 }

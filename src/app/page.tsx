@@ -129,45 +129,16 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <main className="max-w-5xl mx-auto px-6 py-20 grid gap-8">
+      <main className="max-w-5xl mx-auto px-5 py-8 sm:py-14 grid gap-5">
         <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">
           Upload. Sign. Download. <span className="text-[color:var(--color-accent)]">Done.</span>
         </h1>
         <p className="text-lg text-foreground/80 max-w-2xl">
-          Minimalist PDF signing with ShapeAssist real-time correction. No emails. No watermarks.
+          Sign your PDF in minutes. ShapeAssist smooths your handwriting automatically.
         </p>
-        <div className="flex gap-3">
-          <a href="#upload" className="inline-flex items-center rounded-md px-5 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition">
-            Upload PDF
-          </a>
-          <a href="/pricing" className="inline-flex items-center rounded-md px-5 py-3 border border-foreground/20 hover:bg-foreground/5 transition">
-            Upgrade to Pro
-          </a>
-        </div>
-
-        <SigningAllowanceNotice />
-
         <section id="upload" className="rounded-2xl border border-foreground/15 bg-background p-6 shadow-sm">
-          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold">Upload your PDF</h2>
-              <p className="mt-1 text-sm text-foreground/70">
-                Select a PDF and NovaQuill opens the editor immediately. Sign in to use your saved signatures. Free accounts include 3 documents per month; Pro signing is unlimited.
-              </p>
-            </div>
-            {!isSignedIn && !isAuthLoading && (
-              <button
-                type="button"
-                onClick={requestSignIn}
-                className="inline-flex items-center justify-center rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition"
-              >
-                Sign in with Google
-              </button>
-            )}
-          </div>
-
           <div
-            className={`rounded-xl border-2 border-dashed p-10 text-center transition-colors ${
+            className={`rounded-xl border-2 border-dashed p-6 sm:p-10 text-center transition-colors ${
               dragActive
                 ? "border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/5"
                 : "border-foreground/20 hover:border-foreground/35"
@@ -179,9 +150,9 @@ export default function Home() {
           >
             <div className="mx-auto grid max-w-xl gap-4">
               <div>
-                <p className="text-xl font-medium">{dragActive ? "Drop your PDF here" : "Drop PDF here"}</p>
+                <p className="text-xl font-medium">{dragActive ? "Drop your PDF here" : "Upload your PDF"}</p>
                 <p className="mt-1 text-sm text-foreground/70">
-                  {isSignedIn ? "or choose a file to start editing now" : "sign in first, then upload your PDF"}
+                  {isSignedIn ? "Choose a PDF or drop it here" : "Sign in to start. Free: 3 documents per month."}
                 </p>
               </div>
               <input
@@ -197,7 +168,7 @@ export default function Home() {
                   htmlFor="home-file-input"
                   className="mx-auto inline-flex cursor-pointer items-center rounded-md px-6 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition"
                 >
-                  {isLoading ? "Opening editor..." : "Choose PDF"}
+                  {isLoading ? "Opening editor..." : "Upload PDF"}
                 </label>
               ) : (
                 <button
@@ -206,13 +177,14 @@ export default function Home() {
                   disabled={isAuthLoading}
                   className="mx-auto inline-flex items-center rounded-md px-6 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isAuthLoading ? "Checking sign-in..." : "Sign in to upload"}
+                  {isAuthLoading ? "Checking sign-in..." : "Sign in to upload PDF"}
                 </button>
               )}
               <p className="text-xs text-foreground/60">PDF only. Maximum size: {MAX_FILE_SIZE / (1024 * 1024)}MB.</p>
             </div>
           </div>
 
+          <div className="mt-4"><SigningAllowanceNotice compact /></div>
           {error && (
             <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
               {error}

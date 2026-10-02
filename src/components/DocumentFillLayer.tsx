@@ -160,6 +160,7 @@ export default function DocumentFillLayer({
     <div
       className={`absolute inset-0 ${placementMode ? "cursor-crosshair" : ""}`}
       style={{ width: pdfSize.width, height: pdfSize.height }}
+      data-navigation-surface={!placementMode ? "true" : undefined}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}

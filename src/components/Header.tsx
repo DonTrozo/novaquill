@@ -6,9 +6,9 @@ export default function Header() {
   return (
     <header className="max-w-5xl mx-auto px-4 py-3 sm:px-6 sm:py-5 flex items-center justify-between">
       <Link href="/" className="flex items-center gap-3">
-        <div className="w-9 h-9 bg-[color:var(--color-accent)] rounded-lg flex items-center justify-center text-white font-bold text-lg">
-          N
-        </div>
+        <svg viewBox="370 350 820 570" aria-hidden="true" className="h-10 w-14 rounded-md bg-white">
+          <image href="/novaquill-logo.png" width="1536" height="1536" />
+        </svg>
         <span className="text-xl font-semibold">NovaQuill</span>
       </Link>
       <details className="relative z-50">
@@ -21,5 +21,4 @@ export default function Header() {
     </header>
   );
 }
-
 

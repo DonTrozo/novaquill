@@ -1,11 +1,25 @@
 export type InkPoint = { x: number; y: number };
 export type InkStroke = {
+  groupId?: string;
   page: number;
   points: InkPoint[];
   color: string;
   width: number;
   viewport: { width: number; height: number };
 };
+
+export function inkGroupId(stroke: InkStroke) {
+  return stroke.groupId ?? `page-${stroke.page}`;
+}
+
+export function transformInkGroup(strokes: InkStroke[], groupId: string, from: { x: number; y: number; width: number; height: number }, to: { x: number; y: number; width: number; height: number }): InkStroke[] {
+  const ratio = to.width / from.width;
+  return strokes.map((stroke) => inkGroupId(stroke) !== groupId ? stroke : {
+    ...stroke,
+    points: stroke.points.map((point) => ({ x: to.x + (point.x - from.x) * ratio, y: to.y + (point.y - from.y) * ratio })),
+    width: stroke.width * ratio,
+  });
+}
 
 export function smoothInk(points: InkPoint[], strength: number): InkPoint[] {
   const amount = Math.max(0, Math.min(1, strength));

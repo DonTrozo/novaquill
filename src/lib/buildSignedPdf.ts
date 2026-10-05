@@ -20,6 +20,11 @@ export async function buildSignedPdf({ pdfBytes, sigDataUrl, page, x, y, width, 
 
     textElements.forEach((item) => {
       const text = item.text.trim();
+      if (item.fieldName) {
+        const field = pdfDoc.getForm().getTextField(item.fieldName);
+        field.setText(text);
+        return;
+      }
       if (!text) return;
       const target = pages[item.page - 1];
       if (!target) throw new Error("The text belongs to a page that no longer exists");

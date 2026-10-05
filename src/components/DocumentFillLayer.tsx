@@ -1,9 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import type { DetectedField } from "@/lib/pdfFields";
 import { type MouseEvent, type PointerEvent, useState } from "react";
 
 export type TextElement = {
+  fieldName?: string;
   id: string;
   page: number;
   x: number;
@@ -44,6 +46,7 @@ function clamp(value: number, min: number, max: number): number {
 
 export default function DocumentFillLayer({
   pdfSize,
+  scale = 1,
   page,
   activeTool,
   sigDataUrl,
@@ -57,8 +60,11 @@ export default function DocumentFillLayer({
   onSignatureSizeChange,
   onTextElementsChange,
   onClearSignature,
+  detectedFields = [],
+  onFieldPlaced,
 }: {
   pdfSize: Size;
+  scale?: number;
   page: number;
   activeTool: EditorTool;
   sigDataUrl: string | null;
@@ -72,6 +78,8 @@ export default function DocumentFillLayer({
   onSignatureSizeChange: (size: Size) => void;
   onTextElementsChange: (elements: TextElement[]) => void;
   onClearSignature: () => void;
+  detectedFields?: DetectedField[];
+  onFieldPlaced?: (field: DetectedField) => void;
 }) {
   const [selected, setSelected] = useState<Selected>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -80,7 +88,8 @@ export default function DocumentFillLayer({
   const placementMode = activeTool !== "select";
 
   const updateText = (id: string, updates: Partial<TextElement>) => {
-    onTextElementsChange(textElements.map((item) => (item.id === id ? { ...item, ...updates } : item)));
+    const target = textElements.find((item) => item.id === id);
+    onTextElementsChange(textElements.map((item) => (item.id === id || (updates.text !== undefined && target?.fieldName && item.fieldName === target.fieldName) ? { ...item, ...updates } : item)));
   };
 
   const beginDrag = (
@@ -100,9 +109,11 @@ export default function DocumentFillLayer({
 
     if (dragState.target === "signature") {
       if (dragState.kind === "resize") {
-        const nextWidth = clamp(dragState.startWidth + dx, MIN_SIGNATURE_WIDTH, pdfSize.width - dragState.startX);
         const aspectRatio = dragState.startHeight / dragState.startWidth;
-        const nextHeight = clamp(nextWidth * aspectRatio, MIN_SIGNATURE_HEIGHT, pdfSize.height - dragState.startY);
+        const maxWidth = Math.min(pdfSize.width - dragState.startX, (pdfSize.height - dragState.startY) / aspectRatio);
+        const minWidth = Math.min(maxWidth, Math.max(MIN_SIGNATURE_WIDTH * scale, MIN_SIGNATURE_HEIGHT * scale / aspectRatio));
+        const nextWidth = clamp(dragState.startWidth + dx, minWidth, maxWidth);
+        const nextHeight = nextWidth * aspectRatio;
         onSignatureSizeChange({ width: nextWidth, height: nextHeight });
       } else {
         onSignaturePositionChange({
@@ -166,6 +177,8 @@ export default function DocumentFillLayer({
       onPointerCancel={endDrag}
       onClick={handleCanvasClick}
     >
+      {activeTool === "text" && detectedFields.filter((field) => !textElements.some((item) => item.id === `field-${page}-${field.id}`)).map((field) => <button key={field.id} type="button" aria-label={`Fill ${field.label}`} className="absolute z-10 rounded border-2 border-dashed border-[color:var(--color-accent)] bg-cyan-500/10 text-left" style={{ left: field.x, top: field.y, width: field.width, height: field.height }}
+        onClick={(event) => { event.stopPropagation(); onFieldPlaced?.(field); }} />)}
       {placementMode && (
         <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-full border border-foreground/10 bg-background/90 px-3 py-1 text-xs shadow">
           Click where you want to place it
@@ -203,6 +216,7 @@ export default function DocumentFillLayer({
               className="h-full w-full cursor-move touch-none"
               onPointerDown={(event) => {
                 setSelected({ kind: "text", id: item.id });
+                if (item.fieldName) return;
                 beginDrag(event, {
                   target: "text",
                   id: item.id,
@@ -225,9 +239,10 @@ export default function DocumentFillLayer({
                 style={{ fontSize: item.fontSize }}
               />
             </div>
-            {isSelected && !placementMode && (
+            {isSelected && !placementMode && !item.fieldName && (
               <div
-                className="absolute -bottom-2 -right-2 h-4 w-4 cursor-se-resize touch-none rounded-full border border-[color:var(--color-accent)] bg-background shadow"
+                aria-label="Resize text"
+                className="absolute -bottom-3 -right-3 h-7 w-7 cursor-se-resize touch-none rounded-full border border-[color:var(--color-accent)] bg-background shadow"
                 onPointerDown={(event) =>
                   beginDrag(event, {
                     target: "text",
@@ -287,7 +302,8 @@ export default function DocumentFillLayer({
           </div>
           {selected?.kind === "signature" && !placementMode && (
             <div
-              className="absolute -bottom-2 -right-2 h-4 w-4 cursor-se-resize touch-none rounded-full border border-[color:var(--color-accent)] bg-background shadow"
+              aria-label="Resize signature"
+              className="absolute -bottom-4 -right-4 h-9 w-9 cursor-se-resize touch-none rounded-full border border-[color:var(--color-accent)] bg-background shadow"
               onPointerDown={(event) =>
                 beginDrag(event, {
                   target: "signature",

@@ -9,7 +9,8 @@ import type { NextAuthOptions, User as NextAuthUser } from "next-auth";
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 90 * 24 * 60 * 60 },
+  jwt: { maxAge: 90 * 24 * 60 * 60 },
   providers: [
     Credentials({
       name: "Credentials",

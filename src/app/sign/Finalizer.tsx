@@ -9,6 +9,9 @@ import { track } from "@/lib/track";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import LoadingSpinnerSmall from "@/components/LoadingSpinner";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { clearSigningDraft } from "@/lib/signingDraft";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
@@ -46,6 +49,8 @@ export default function Finalizer({
   drawing = false,
   pdfViewportSize,
   pdfViewportSizes = {},
+  onBeforeSignIn,
+  resumePreview = false,
 }: {
   sigDataUrl: string | null;
   page: number;
@@ -59,8 +64,14 @@ export default function Finalizer({
   drawing?: boolean;
   pdfViewportSize?: ViewportSize | null;
   pdfViewportSizes?: Record<number, ViewportSize>;
+  onBeforeSignIn: () => Promise<void>;
+  resumePreview?: boolean;
 }) {
   const { file } = useUpload();
+  const { status } = useSession();
+  const router = useRouter();
+  const resumed = useRef(false);
+  const previewAction = useRef<() => Promise<void>>(async () => {});
   const downloadInProgress = useRef(false);
   const chargedVersions = useRef(new Set<string>());
   const [isProcessing, setIsProcessing] = useState(false);
@@ -159,6 +170,12 @@ export default function Finalizer({
       setIsProcessing(false);
     }
   }
+  previewAction.current = onPreview;
+  useEffect(() => {
+    if (!resumePreview || resumed.current || drawing || !canFinalize || !file) return;
+    resumed.current = true;
+    void previewAction.current();
+  }, [resumePreview, drawing, canFinalize, file]);
 
   function downloadBlob(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
@@ -183,6 +200,11 @@ export default function Finalizer({
     setError(null);
 
     try {
+      if (status !== "authenticated") {
+        await onBeforeSignIn();
+        router.push("/login?next=/sign");
+        return;
+      }
       // Previews and repeat downloads of the same completed version do not
       // spend another credit. Check the server before releasing a new output.
       if (!chargedVersions.current.has(preview.creditKey)) {
@@ -197,6 +219,7 @@ export default function Finalizer({
         window.dispatchEvent(new Event("novaquill:usage-changed"));
       }
       downloadBlob(preview.blob, preview.filename);
+      void clearSigningDraft().catch(() => {});
       const form = new FormData();
       form.append("file", preview.blob, preview.filename);
       form.append("filename", preview.filename);
@@ -273,10 +296,11 @@ export default function Finalizer({
               <PdfDocumentPreview blob={preview.blob} />
             </div>
             <div className="grid gap-2 border-t border-foreground/10 p-4 sm:flex sm:items-center sm:justify-end">
+              {error && <p role="alert" className="text-sm text-red-600 sm:mr-auto">{error} {error.includes("Upgrade to Pro") && <a href="/pricing" className="underline">View Pro plans</a>}</p>}
               <button
                 type="button"
                 onClick={clearPreview}
-                disabled={isConfirming}
+                disabled={isConfirming || status === "loading"}
                 className="rounded-md border border-foreground/20 px-4 py-2 text-sm transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Back to Edit
@@ -284,10 +308,10 @@ export default function Finalizer({
               <button
                 type="button"
                 onClick={onConfirmDownload}
-                disabled={isConfirming}
+                disabled={isConfirming || status === "loading"}
                 className="rounded-md bg-[color:var(--color-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isConfirming ? "Preparing download..." : "Download Signed PDF"}
+                {isConfirming ? "Preparing download..." : status === "loading" ? "Checking sign-in…" : status === "authenticated" ? "Download Signed PDF" : "Sign in & Download"}
               </button>
             </div>
           </div>

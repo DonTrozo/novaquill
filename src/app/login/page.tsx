@@ -4,6 +4,7 @@ import { signIn, useSession } from "next-auth/react";
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { track } from "@/lib/track";
+import { authReturnPath } from "@/lib/authReturn";
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   OAuthAccountNotLinked:
@@ -24,7 +25,7 @@ function LoginForm() {
   const params = useSearchParams();
   const next = params.get("next");
   const oauthError = params.get("error");
-  const callbackUrl = next || "/dashboard";
+  const callbackUrl = authReturnPath(next);
   const { status } = useSession();
 
   useEffect(() => {
@@ -53,10 +54,12 @@ function LoginForm() {
 
   return (
     <div className="max-w-sm mx-auto px-6 py-12">
-      <h1 className="text-2xl font-semibold mb-6">Log in</h1>
+      <h1 className="text-2xl font-semibold mb-6">{callbackUrl === "/sign" ? "Sign in to download" : "Log in"}</h1>
+      {callbackUrl === "/sign" && <p className="mb-4 text-sm text-foreground/70">Your completed document is saved in this browser and will be ready after sign-in.</p>}
       <form onSubmit={onSubmit} className="grid gap-4">
         <input
           type="email"
+          autoComplete="email"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -65,6 +68,7 @@ function LoginForm() {
         />
         <input
           type="password"
+          autoComplete="current-password"
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -80,7 +84,7 @@ function LoginForm() {
         <button onClick={() => signIn("apple", { callbackUrl })} className="rounded-md px-4 py-2 border border-foreground/20">Continue with Apple</button>
       </div>
       <div className="mt-4 text-sm">
-        No account? <a className="underline" href="/register">Register</a>
+        No account? <a className="underline" href={`/register?next=${encodeURIComponent(callbackUrl)}`}>Register</a>
       </div>
     </div>
   );

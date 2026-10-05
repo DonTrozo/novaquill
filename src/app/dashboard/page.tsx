@@ -3,7 +3,6 @@
 import SigningAllowanceNotice from "@/components/SigningAllowanceNotice";
 
 import { useUpload } from "@/context/UploadContext";
-import { checkSigningAllowance } from "@/lib/signingAllowance";
 import { track } from "@/lib/track";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -91,7 +90,6 @@ export default function DashboardPage() {
         throw new Error("The selected file is not a valid PDF.");
       }
 
-      await checkSigningAllowance();
       setFile(selectedFile);
       track("dashboard_upload_select");
       router.push("/sign");

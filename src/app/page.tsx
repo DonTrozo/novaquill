@@ -4,9 +4,7 @@ import SigningAllowanceNotice from "@/components/SigningAllowanceNotice";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
 import { useUpload } from "@/context/UploadContext";
-import { checkSigningAllowance } from "@/lib/signingAllowance";
 import { track } from "@/lib/track";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -19,16 +17,6 @@ export default function Home() {
   const [dragActive, setDragActive] = useState(false);
   const router = useRouter();
   const { setFile } = useUpload();
-  const { status } = useSession();
-  const isAuthLoading = status === "loading";
-  const isSignedIn = status === "authenticated";
-
-  const requestSignIn = () => {
-    setError("Please sign in before uploading a PDF.");
-    track("home_upload_signin_required");
-    void signIn("google", { callbackUrl: "/" });
-  };
-
   const validatePdfHeader = async (file: File): Promise<boolean> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -59,21 +47,10 @@ export default function Home() {
   };
 
   const handleFileSelect = async (selectedFile: File) => {
-    if (isAuthLoading) {
-      setError("Checking your sign-in status. Please try again in a moment.");
-      return;
-    }
-
-    if (!isSignedIn) {
-      requestSignIn();
-      return;
-    }
-
     setIsLoading(true);
     setError(null);
 
     try {
-      await checkSigningAllowance();
       const validation = await validateFile(selectedFile);
       if (!validation.isValid) {
         setError(validation.error || "Invalid file");
@@ -111,16 +88,6 @@ export default function Home() {
     event.stopPropagation();
     setDragActive(false);
 
-    if (isAuthLoading) {
-      setError("Checking your sign-in status. Please try again in a moment.");
-      return;
-    }
-
-    if (!isSignedIn) {
-      requestSignIn();
-      return;
-    }
-
     const droppedFile = event.dataTransfer.files?.[0] || null;
     if (droppedFile) {
       handleFileSelect(droppedFile);
@@ -142,7 +109,7 @@ export default function Home() {
               dragActive
                 ? "border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/5"
                 : "border-foreground/20 hover:border-foreground/35"
-            } ${!isSignedIn ? "opacity-80" : ""}`}
+            }`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
@@ -152,7 +119,7 @@ export default function Home() {
               <div>
                 <p className="text-xl font-medium">{dragActive ? "Drop your PDF here" : "Upload your PDF"}</p>
                 <p className="mt-1 text-sm text-foreground/70">
-                  {isSignedIn ? "Choose a PDF or drop it here" : "Sign in to start. Free: 3 documents per month."}
+                  Choose a PDF or drop it here. Sign in only when you download.
                 </p>
               </div>
               <input
@@ -161,25 +128,11 @@ export default function Home() {
                 accept="application/pdf"
                 onChange={onSelect}
                 className="hidden"
-                disabled={isLoading || isAuthLoading || !isSignedIn}
+                disabled={isLoading}
               />
-              {isSignedIn ? (
-                <label
-                  htmlFor="home-file-input"
-                  className="mx-auto inline-flex cursor-pointer items-center rounded-md px-6 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition"
-                >
-                  {isLoading ? "Opening editor..." : "Upload PDF"}
-                </label>
-              ) : (
-                <button
-                  type="button"
-                  onClick={requestSignIn}
-                  disabled={isAuthLoading}
-                  className="mx-auto inline-flex items-center rounded-md px-6 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isAuthLoading ? "Checking sign-in..." : "Sign in to upload PDF"}
-                </button>
-              )}
+              <label htmlFor="home-file-input" className="mx-auto inline-flex cursor-pointer items-center rounded-md px-6 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition">
+                {isLoading ? "Opening editor..." : "Upload PDF"}
+              </label>
               <p className="text-xs text-foreground/60">PDF only. Maximum size: {MAX_FILE_SIZE / (1024 * 1024)}MB.</p>
             </div>
           </div>
@@ -243,7 +196,7 @@ export default function Home() {
           <h2 className="text-2xl font-semibold">FAQ</h2>
           <details className="rounded-lg border border-foreground/10 p-4">
             <summary className="cursor-pointer font-medium">Do I need an account?</summary>
-            <div className="text-foreground/70 text-sm mt-2">Yes. Sign-in is required before uploading or signing to use your saved signatures and account.</div>
+            <div className="text-foreground/70 text-sm mt-2">You can upload, fill, sign and preview without an account. Sign in to download. Your document stays ready while you sign in.</div>
           </details>
           <details className="rounded-lg border border-foreground/10 p-4">
             <summary className="cursor-pointer font-medium">Are there watermarks?</summary>

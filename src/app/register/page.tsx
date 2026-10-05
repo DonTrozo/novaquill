@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { track } from "@/lib/track";
+import { authReturnPath } from "@/lib/authReturn";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -25,7 +26,8 @@ export default function RegisterPage() {
       return;
     }
     track("signup_register");
-    router.push("/login");
+    const next = authReturnPath(new URLSearchParams(window.location.search).get("next"));
+    router.push(`/login?next=${encodeURIComponent(next)}`);
   }
 
   return (

@@ -7,8 +7,10 @@ import PdfViewer from "@/components/PdfViewer";
 import SignatureTools from "@/components/SignatureTools";
 import DocumentInkLayer, { imageOfInk } from "@/components/DocumentInkLayer";
 import type { InkStroke } from "@/lib/documentInk";
+import InkSelectionLayer from "@/components/InkSelectionLayer";
+import type { DetectedField } from "@/lib/pdfFields";
 import DocumentFillLayer, { type EditorTool, type TextElement } from "@/components/DocumentFillLayer";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useUpload } from "@/context/UploadContext";
 import Finalizer from "./Finalizer";
@@ -47,28 +49,29 @@ function todayValue() {
 }
 
 export default function SignPage() {
-  const { file } = useUpload();
+  const { ready, file } = useUpload();
+  if (!ready) return <p className="mx-auto max-w-5xl p-6">Opening document…</p>;
+  return <SigningEditor key={file ? `${file.name}-${file.size}-${file.lastModified}` : "empty"} />;
+}
+
+function SigningEditor() {
+  const { file, draft, preserveDraft } = useUpload();
   const allowanceState = useSigningUsage();
-  const { usage, checking, error: allowanceError } = allowanceState;
-  const [allowanceApproved, setAllowanceApproved] = useState(false);
-  useEffect(() => {
-    if (usage && usage.subscription !== "ANON" && (usage.limit === null || usage.used < usage.limit)) setAllowanceApproved(true);
-  }, [usage]);
   const { status } = useSession();
   const [pdfSize, setPdfSize] = useState<PdfSize | null>(null);
-  const [pdfPageSizes, setPdfPageSizes] = useState<Record<number, PdfSize>>({});
+  const [pdfPageSizes, setPdfPageSizes] = useState<Record<number, PdfSize>>(draft?.pdfPageSizes ?? {});
   const [activeTool, setActiveTool] = useState<EditorTool>("select");
-  const [sigDataUrl, setSigDataUrl] = useState<string | null>(null);
+  const [sigDataUrl, setSigDataUrl] = useState<string | null>(draft?.sigDataUrl ?? null);
   const [signaturePixelWidth, setSignaturePixelWidth] = useState(0);
-  const [signaturePage, setSignaturePage] = useState(1);
-  const [signaturePlaced, setSignaturePlaced] = useState(false);
-  const [pos, setPos] = useState<Point>({ x: 20, y: 20 });
-  const [signatureSize, setSignatureSize] = useState(INITIAL_SIGNATURE_SIZE);
-  const [signatureRotation, setSignatureRotation] = useState(INITIAL_SIGNATURE_ROTATION);
-  const [page, setPage] = useState(1);
+  const [signaturePage, setSignaturePage] = useState(draft?.signaturePage ?? 1);
+  const [signaturePlaced, setSignaturePlaced] = useState(draft?.signaturePlaced ?? false);
+  const [pos, setPos] = useState<Point>(draft?.pos ?? { x: 20, y: 20 });
+  const [signatureSize, setSignatureSize] = useState(draft?.signatureSize ?? INITIAL_SIGNATURE_SIZE);
+  const [signatureRotation, setSignatureRotation] = useState(draft?.signatureRotation ?? INITIAL_SIGNATURE_ROTATION);
+  const [page, setPage] = useState(draft?.page ?? 1);
   const [numPages, setNumPages] = useState(1);
-  const [scale, setScale] = useState(INITIAL_SCALE);
-  const [inkStrokes, setInkStrokes] = useState<InkStroke[]>([]);
+  const [scale, setScale] = useState(draft?.scale ?? INITIAL_SCALE);
+  const [inkStrokes, setInkStrokes] = useState<InkStroke[]>(draft?.inkStrokes ?? []);
   const panRef = useRef<{ id: number; x: number; y: number; left: number; top: number } | null>(null);
   const [redoInk, setRedoInk] = useState<InkStroke[]>([]);
   const [inkColor, setInkColor] = useState("#111111");
@@ -79,11 +82,26 @@ export default function SignPage() {
   const [savingInk, setSavingInk] = useState(false);
   const [signatureLibraryVersion, setSignatureLibraryVersion] = useState(0);
   const viewerContainerRef = useRef<HTMLDivElement | null>(null);
-  const autoFitDone = useRef(false);
+  const autoFitDone = useRef(Boolean(draft));
   const toolsRef = useRef<HTMLDetailsElement | null>(null);
   const zoomScrollRef = useRef<{ left: number; top: number } | null>(null);
-  const [textElements, setTextElements] = useState<TextElement[]>([]);
-  const isAuthLoading = status === "loading";
+  const [textElements, setTextElements] = useState<TextElement[]>(draft?.textElements ?? []);
+  const [detectedFields, setDetectedFields] = useState<DetectedField[]>([]);
+  const [selectedInk, setSelectedInk] = useState<string | null>(null);
+  const inkGroupRef = useRef<string | null>(null);
+  const preserveForSignIn = async () => {
+    if (!file) throw new Error("No document to preserve.");
+    await preserveDraft({ sigDataUrl, signaturePage, signaturePlaced, pos, signatureSize, signatureRotation, page, scale, inkStrokes, textElements, pdfPageSizes });
+  };
+  const toggleSigning = () => {
+    if (activeTool === "draw") { setActiveTool("select"); setSelectedInk(inkGroupRef.current); }
+    else { inkGroupRef.current = crypto.randomUUID(); setSelectedInk(null); setActiveTool("draw"); }
+    if (toolsRef.current) toolsRef.current.open = false;
+  };
+  const placeDetectedField = (field: DetectedField) => {
+    setTextElements((current) => [...current, { id: `field-${page}-${field.id}`, page, x: field.x, y: field.y, width: field.width, height: field.height, fontSize: Math.min(14 * scale, field.height * 0.6), text: field.value ?? "", fieldName: field.fieldName }]);
+    setActiveTool("select");
+  };
   const isSignedIn = status === "authenticated";
 
   const handlePdfSize = (size: PdfSize) => {
@@ -184,8 +202,8 @@ export default function SignPage() {
         page,
         x,
         y,
-        width: config.width,
-        height: config.height,
+            width: config.width,
+            height: config.height,
         text: config.text,
         fontSize: config.fontSize,
       },
@@ -251,45 +269,6 @@ export default function SignPage() {
         : "border-foreground/20 hover:bg-foreground/5"
     }`;
 
-  if (isAuthLoading) {
-    return (
-      <div className="mx-auto max-w-3xl px-6 py-12">
-        <div className="rounded-lg border border-foreground/15 p-6">
-          <h1 className="text-2xl font-semibold">Checking sign-in status</h1>
-          <p className="mt-2 text-foreground/70">Please wait while NovaQuill confirms your account.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isSignedIn) {
-    return (
-      <div className="mx-auto max-w-3xl px-6 py-12">
-        <div className="rounded-lg border border-foreground/15 p-6">
-          <h1 className="text-2xl font-semibold">Sign in required</h1>
-          <p className="mt-2 text-foreground/70">
-            Sign in to use your saved signatures and account.
-          </p>
-          <Link
-            href="/login?next=/upload"
-            className="mt-5 inline-flex items-center rounded-md bg-[color:var(--color-accent)] px-5 py-3 text-white transition hover:opacity-90"
-          >
-            Sign in
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (!allowanceApproved) {
-    return <div className="mx-auto max-w-3xl px-6 py-12 space-y-4">
-      <h1 className="text-2xl font-semibold">{checking ? "Checking your allowance" : allowanceError ? "Could not check your allowance" : "Free monthly limit reached"}</h1>
-      <SigningUsageNotice state={allowanceState} />
-      {!checking && !allowanceError && <p>You have used the 3 free documents for this month. Upgrade to Pro for unlimited signing or return next month.</p>}
-      <Link href="/pricing" className="inline-flex rounded-md bg-[color:var(--color-accent)] px-5 py-3 text-white">View Pro plans</Link>
-    </div>;
-  }
-
   if (!file) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-12">
@@ -318,7 +297,7 @@ export default function SignPage() {
       <div className="sticky top-0 z-40 mb-3 rounded-lg border border-foreground/15 bg-background p-2 shadow-sm">
         <div className="flex items-center gap-2">
           <button type="button" disabled={drawing || !pdfReady} aria-pressed={activeTool === "draw"}
-            onClick={() => { setActiveTool(activeTool === "draw" ? "select" : "draw"); if (toolsRef.current) toolsRef.current.open = false; }}
+            onClick={toggleSigning}
             className={`rounded-md px-4 py-2 text-sm font-medium ${activeTool === "draw" ? "border border-foreground/20" : "bg-[color:var(--color-accent)] text-white"}`}>
             {activeTool === "draw" ? "Done signing" : "Sign"}
           </button>
@@ -329,7 +308,7 @@ export default function SignPage() {
             <button type="button" onClick={() => handleScaleChange("increase")} disabled={drawing} aria-label="Zoom in" className="rounded border px-3 py-2">+</button>
           </div>
         </div>
-        <p className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? "Draw your signature. ShapeAssist is automatic. Tap Done signing to move around." : activeTool === "select" ? "Scroll or pinch to find your spot, then tap Sign. Drag to move around on desktop." : `Tap the document to add ${TOOL_LABELS[activeTool].toLowerCase()}.`}</p>
+        <p className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? "Draw your signature. ShapeAssist is automatic. Tap Done signing, then drag or resize your signature." : activeTool === "select" ? "Scroll or pinch to find your spot. Tap a signature to move it; drag its corner to resize." : activeTool === "text" ? "Tap a highlighted field to fill it, or tap anywhere to add text." : `Tap the document to add ${TOOL_LABELS[activeTool].toLowerCase()}.`}</p>
       </div>
       <details ref={toolsRef} className="mb-3 rounded-lg border border-foreground/15 px-3 py-2">
         <summary className="cursor-pointer text-sm">More tools</summary>
@@ -343,7 +322,7 @@ export default function SignPage() {
           {inkStrokes.some((stroke) => stroke.page === page) && <div className="flex flex-wrap gap-2">
             <button type="button" onClick={undoInk} disabled={drawing} className="rounded border px-3 py-2 text-sm">Undo stroke</button>
             <button type="button" onClick={() => { setInkStrokes((current) => current.filter((stroke) => stroke.page !== page)); setRedoInk([]); }} disabled={drawing} className="rounded border px-3 py-2 text-sm">Clear page ink</button>
-            <button type="button" onClick={() => void saveDocumentInk()} disabled={savingInk || drawing} className="rounded border px-3 py-2 text-sm">{savingInk ? "Saving…" : "Save signature for next time"}</button>
+            <button type="button" onClick={() => void saveDocumentInk()} disabled={savingInk || drawing || !isSignedIn} className="rounded border px-3 py-2 text-sm">{savingInk ? "Saving…" : "Save signature for next time"}</button>
           </div>}
           {redoInk.some((stroke) => stroke.page === page) && <button type="button" onClick={redoLastInk} disabled={drawing} className="rounded border px-3 py-2 text-sm">Redo stroke</button>}
           {saveInkMessage && <p role="status" className="text-sm">{saveInkMessage}</p>}
@@ -374,16 +353,17 @@ export default function SignPage() {
         onPointerUp={(event) => { if (panRef.current?.id === event.pointerId) { panRef.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); } }}
         onPointerCancel={() => { panRef.current = null; }}>
         <div className="relative inline-block min-w-fit">
-          <PdfViewer onSize={handlePdfSize} onMeta={({ numPages }) => setNumPages(numPages)} page={page} scale={scale} />
-          {pdfSize && pdfReady && <DocumentFillLayer pdfSize={pdfSize} page={page} activeTool={activeTool === "draw" ? "select" : activeTool}
+          <PdfViewer onFields={setDetectedFields} onSize={handlePdfSize} onMeta={({ numPages }) => setNumPages(numPages)} page={page} scale={scale} />
+          {pdfSize && pdfReady && <DocumentFillLayer scale={scale} pdfSize={pdfSize} page={page} activeTool={activeTool === "draw" ? "select" : activeTool}
             sigDataUrl={sigDataUrl} signaturePlaced={signaturePlaced && signaturePage === page} signaturePosition={pos} signatureSize={signatureSize} signatureRotation={signatureRotation}
-            textElements={textElements} onToolPlaced={handleToolPlaced} onSignaturePositionChange={setPos} onSignatureSizeChange={setSignatureSize} onTextElementsChange={setTextElements} onClearSignature={clearSignature} />}
+            detectedFields={detectedFields} onFieldPlaced={placeDetectedField} textElements={textElements} onToolPlaced={handleToolPlaced} onSignaturePositionChange={setPos} onSignatureSizeChange={setSignatureSize} onTextElementsChange={setTextElements} onClearSignature={clearSignature} />}
           {pdfSize && pdfReady && <DocumentInkLayer size={pdfSize} scale={scale} page={page} enabled={activeTool === "draw"} strokes={inkStrokes} color={inkColor} penWidth={inkWidth}
-            onStroke={(stroke) => { setInkStrokes((current) => [...current, stroke]); setRedoInk([]); setSaveInkMessage(null); }} onDrawingChange={setDrawing} />}
+            onStroke={(stroke) => { setInkStrokes((current) => [...current, { ...stroke, groupId: inkGroupRef.current ?? undefined }]); setRedoInk([]); setSaveInkMessage(null); }} onDrawingChange={setDrawing} />}
+          {pdfSize && pdfReady && activeTool === "select" && <InkSelectionLayer strokes={inkStrokes} page={page} scale={scale} size={pdfSize} selected={selectedInk} onSelect={setSelectedInk} onChange={(next) => { setInkStrokes(next); setRedoInk([]); }} />}
         </div>
       </div>
       <div className="sticky bottom-0 z-40 mt-3 border-t border-foreground/10 bg-background py-3">
-        <Finalizer sigDataUrl={signaturePlaced ? sigDataUrl : null} page={signaturePage} x={pos.x} y={pos.y} width={signatureSize.width} height={signatureSize.height} rotation={signatureRotation}
+        <Finalizer onBeforeSignIn={preserveForSignIn} resumePreview={Boolean(draft)} sigDataUrl={signaturePlaced ? sigDataUrl : null} page={signaturePage} x={pos.x} y={pos.y} width={signatureSize.width} height={signatureSize.height} rotation={signatureRotation}
           textElements={textElements} inkStrokes={inkStrokes} drawing={drawing || !pdfReady} pdfViewportSize={pdfPageSizes[signaturePage]} pdfViewportSizes={pdfPageSizes} />
       </div>
     </div>

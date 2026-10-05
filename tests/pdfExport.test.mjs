@@ -117,3 +117,12 @@ test('direct ink supports several pages and a one-point dot', async () => {
   assert.equal(reopened.getPageCount(), 2);
   assert.ok(reopened.getPage(0).node.Contents()); assert.ok(reopened.getPage(1).node.Contents());
 });
+
+test('detected native form fields export their entered values and flatten without hiding the text', async () => {
+  const pdf = await PDFDocument.create(); const pg = pdf.addPage([600, 800]);
+  const field = pdf.getForm().createTextField('Full name'); field.addToPage(pg, { x: 100, y: 650, width: 250, height: 30 }); field.setText('Old value');
+  const out = await buildSignedPdf({ pdfBytes: await pdf.save(), sigDataUrl: null, page: 1, x: 0, y: 0, width: 200, signatureHeight: 80, rotation: 0, textElements: [{ id: 'native', fieldName: 'Full name', page: 1, x: 100, y: 120, width: 250, height: 30, fontSize: 14, text: 'Mock Completed Name' }], pdfViewportSizes: { 1: { width: 600, height: 800 } } });
+  const reopened = await PDFDocument.load(out); assert.equal(reopened.getForm().getFields().length, 0);
+  const extracted = spawnSync('pdftotext', ['-', '-'], { input: Buffer.from(out), encoding: 'utf8' });
+  assert.equal(extracted.status, 0); assert.match(extracted.stdout, /Mock Completed Name/); assert.doesNotMatch(extracted.stdout, /Old value/);
+});

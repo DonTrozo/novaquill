@@ -2,27 +2,30 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useUpload } from "@/context/UploadContext";
-import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from "pdfjs-dist";
+import { getDocument, GlobalWorkerOptions, OPS, type PDFDocumentProxy } from "pdfjs-dist";
+import { detectPdfFields, type DetectedField } from "@/lib/pdfFields";
 import LoadingSpinner from "./LoadingSpinner";
 
 if (typeof window !== "undefined") GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
 type Size = { width: number; height: number };
 
-function PdfCanvas({ source, page, scale, onSize, onMeta }: {
+function PdfCanvas({ source, page, scale, onSize, onMeta, onFields }: {
   source: Blob | null; page: number; scale: number;
   onSize?: (size: Size) => void;
   onMeta?: (meta: { numPages: number }) => void;
+  onFields?: (fields: DetectedField[]) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const onSizeRef = useRef(onSize);
   const onMetaRef = useRef(onMeta);
+  const onFieldsRef = useRef(onFields);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [retry, setRetry] = useState(0);
 
-  useEffect(() => { onSizeRef.current = onSize; onMetaRef.current = onMeta; }, [onSize, onMeta]);
+  useEffect(() => { onSizeRef.current = onSize; onMetaRef.current = onMeta; onFieldsRef.current = onFields; }, [onSize, onMeta, onFields]);
 
   // Parse once per file, rather than reloading the whole PDF on every zoom/page change.
   useEffect(() => {
@@ -55,6 +58,13 @@ function PdfCanvas({ source, page, scale, onSize, onMeta }: {
     void pdf.getPage(page).then(async (pg) => {
       if (cancelled) return;
       const viewport = pg.getViewport({ scale });
+      if (onFieldsRef.current) {
+        // Field detection must not prevent an otherwise valid PDF from rendering.
+        try {
+          const [annotations, text, operators] = await Promise.all([pg.getAnnotations(), pg.getTextContent(), pg.getOperatorList()]);
+          if (!cancelled) onFieldsRef.current(detectPdfFields(annotations, text.items.filter((item) => "str" in item), operators, OPS, viewport, scale));
+        } catch { if (!cancelled) onFieldsRef.current([]); }
+      }
       const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
       const offscreen = document.createElement("canvas");
       offscreen.width = Math.ceil(viewport.width * pixelRatio);
@@ -91,13 +101,14 @@ function PdfCanvas({ source, page, scale, onSize, onMeta }: {
   );
 }
 
-export default function PdfViewer({ onSize, onMeta, page = 1, scale = 1.2 }: {
+export default function PdfViewer({ onSize, onMeta, onFields, page = 1, scale = 1.2 }: {
   onSize?: (size: Size) => void;
   onMeta?: (meta: { numPages: number }) => void;
+  onFields?: (fields: DetectedField[]) => void;
   page?: number; scale?: number;
 }) {
   const { file } = useUpload();
-  return <PdfCanvas source={file} page={page} scale={scale} onSize={onSize} onMeta={onMeta} />;
+  return <PdfCanvas source={file} page={page} scale={scale} onSize={onSize} onMeta={onMeta} onFields={onFields} />;
 }
 
 // A canvas preview also works on phones whose browsers cannot display blob PDFs in iframes.

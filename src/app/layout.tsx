@@ -37,8 +37,17 @@ export const metadata: Metadata = {
       "Ultra-simple e‑signing with ShapeAssist real-time smoothing. Free and Pro.",
     url: siteUrl,
     siteName: "NovaQuill",
+    images: [{ url: "/novaquill-icon-512.png", width: 512, height: 512, alt: "NovaQuill logo" }],
   },
-  icons: { icon: "/favicon.ico" },
+  icons: {
+    icon: [
+      { url: "/novaquill-icon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/novaquill-icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico?v=novaquill-20261006",
+    apple: [{ url: "/novaquill-apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({

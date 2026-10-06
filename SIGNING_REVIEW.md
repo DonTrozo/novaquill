@@ -19,4 +19,4 @@ The Text tool highlights native editable PDF text widgets and suggests printed b
 - 38 regression tests pass, including real PDF field detection at all four rotations, native form export, grouped signature transforms, draft round-trip/expiry, safe authentication return paths, and existing quota/concurrency and PDF export coverage.
 - TypeScript and ESLint pass.
 - Production build passes with temporary local Google Font responses mocked. The mock is outside the repository.
-- Browser verification of this revision is pending deployment; mobile gestures and complete OAuth/download flow have not yet been verified for this revision.
+- Production deployment succeeded. The live homepage exposes Upload PDF without sign-in. Browser verification stopped at a file-picker tool timeout, so editor interactions, mobile gestures and the complete OAuth/download flow remain unverified on this revision.

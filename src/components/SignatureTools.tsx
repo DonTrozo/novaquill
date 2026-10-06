@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 
 export type SignatureKind = "draw" | "type" | "upload";
 
@@ -132,6 +133,8 @@ function trimCanvas(canvas: HTMLCanvasElement, padding = 10): HTMLCanvasElement 
 }
 
 export default function SignatureTools({ onSignature, drawingEnabled = true }: { onSignature: (dataUrl: string) => void; drawingEnabled?: boolean }) {
+  const { status } = useSession();
+  const isSignedIn = status === "authenticated";
   const [color, setColor] = useState("#111111");
   const [lineWidth, setLineWidth] = useState(DRAWING_LINE_WIDTH);
   const [mode, setMode] = useState<SignatureKind>(drawingEnabled ? "draw" : "type");
@@ -179,6 +182,7 @@ export default function SignatureTools({ onSignature, drawingEnabled = true }: {
   }, [redrawCanvas, mode]);
 
   useEffect(() => {
+    if (!isSignedIn) { setSavedSignatures([]); setIsLoadingSaved(false); return; }
     let cancelled = false;
     async function loadSavedSignatures() {
       setIsLoadingSaved(true);
@@ -200,10 +204,10 @@ export default function SignatureTools({ onSignature, drawingEnabled = true }: {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isSignedIn]);
 
   const saveSignatureIfNeeded = async (dataUrl: string) => {
-    if (!saveForFuture) return;
+    if (!saveForFuture || !isSignedIn) return;
     const trimmedName = name.trim();
     const response = await fetch("/api/signatures", {
       method: "POST",
@@ -429,7 +433,7 @@ export default function SignatureTools({ onSignature, drawingEnabled = true }: {
 
   return (
     <div className="grid gap-4">
-      <div className="rounded-lg border border-foreground/15 p-4 space-y-3">
+      {isSignedIn && <div className="rounded-lg border border-foreground/15 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Saved signatures</h3>
           <span className="text-xs text-foreground/60">{savedSignatures.length} saved</span>
@@ -462,7 +466,7 @@ export default function SignatureTools({ onSignature, drawingEnabled = true }: {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       <div className="flex gap-2 flex-wrap">
         {drawingEnabled && <button onClick={() => setMode("draw")} className={`px-3 py-1 rounded-md border transition-colors ${mode === "draw" ? "bg-foreground/5 border-foreground/30" : "hover:bg-foreground/5"}`} aria-label="Draw signature">
@@ -561,14 +565,14 @@ export default function SignatureTools({ onSignature, drawingEnabled = true }: {
         </div>
       )}
 
-      <div className="rounded-lg border border-foreground/15 p-3 space-y-3">
+      {isSignedIn && <div className="rounded-lg border border-foreground/15 p-3 space-y-3">
         <label htmlFor="signature-name" className="block text-xs font-medium">Save name (optional)</label>
         <input id="signature-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Personal signature" className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent" />
         <label className="flex items-center justify-between text-sm">
           <span>Save this signature for future use</span>
           <input type="checkbox" checked={saveForFuture} onChange={(e) => setSaveForFuture(e.target.checked)} aria-label="Save signature for future use" />
         </label>
-      </div>
+      </div>}
 
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg">

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { clearSigningDraft, loadSigningDraft, saveSigningDraft, type EditorDraft } from "@/lib/signingDraft";
 
 type UploadContextValue = {
@@ -17,15 +17,17 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   const [file, updateFile] = useState<File | null>(null);
   const [draft, setDraft] = useState<EditorDraft | null>(null);
   const [ready, setReady] = useState(false);
+  const selectedFileRef = useRef(false);
   useEffect(() => {
     let cancelled = false;
     void loadSigningDraft().then((saved) => {
-      if (cancelled || !saved) return;
+      if (cancelled || !saved || selectedFileRef.current) return;
       updateFile(saved.file); setDraft(saved.editor);
     }).catch(() => {}).finally(() => { if (!cancelled) setReady(true); });
     return () => { cancelled = true; };
   }, []);
   const setFile = (next: File | null) => {
+    selectedFileRef.current = true;
     updateFile(next); setDraft(null);
     void clearSigningDraft().catch(() => {});
   };

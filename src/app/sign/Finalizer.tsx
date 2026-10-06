@@ -1,5 +1,6 @@
 "use client";
 
+import type { TextElement } from "@/components/DocumentFillLayer";
 import { documentVersion } from "@/lib/documentVersion";
 import type { InkStroke } from "@/lib/documentInk";
 import { buildSignedPdf } from "@/lib/buildSignedPdf";
@@ -14,17 +15,6 @@ import { useRouter } from "next/navigation";
 import { clearSigningDraft } from "@/lib/signingDraft";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
-
-type TextElement = {
-  id: string;
-  page: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  text: string;
-  fontSize: number;
-};
 
 type ViewportSize = { width: number; height: number };
 
@@ -79,7 +69,7 @@ export default function Finalizer({
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState>(null);
 
-  const hasDrawableText = textElements.some((item) => item.text.trim().length > 0);
+  const hasDrawableText = textElements.some((item) => item.fieldName || item.text.trim().length > 0);
   const canFinalize = Boolean(sigDataUrl) || hasDrawableText || inkStrokes.length > 0;
 
   const currentVersion = useMemo(

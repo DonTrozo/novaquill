@@ -20,15 +20,18 @@ export async function buildSignedPdf({ pdfBytes, sigDataUrl, page, x, y, width, 
 
     textElements.forEach((item) => {
       const text = item.text.trim();
-      if (item.fieldName) {
-        const field = pdfDoc.getForm().getTextField(item.fieldName);
-        field.setText(text);
-        return;
-      }
-      if (!text) return;
       const target = pages[item.page - 1];
       if (!target) throw new Error("The text belongs to a page that no longer exists");
       const map = pagePlacement(target, viewportFor(item.page));
+      if (item.fieldName) {
+        const field = pdfDoc.getForm().getTextField(item.fieldName);
+        field.setText(text);
+        field.acroField.setDefaultAppearance(`${field.acroField.getDefaultAppearance() ?? ""}\n0 g`);
+        field.setFontSize(item.fontSize * map.sy);
+        field.updateAppearances(font);
+        return;
+      }
+      if (!text) return;
       const baseline = map.point(item.x + 8, item.y + item.height / 2 + item.fontSize * 0.35);
       target.drawText(text, {
         ...baseline,

@@ -126,3 +126,31 @@ test('detected native form fields export their entered values and flatten withou
   const extracted = spawnSync('pdftotext', ['-', '-'], { input: Buffer.from(out), encoding: 'utf8' });
   assert.equal(extracted.status, 0); assert.match(extracted.stdout, /Mock Completed Name/); assert.doesNotMatch(extracted.stdout, /Old value/);
 });
+
+test('small numeric font sizes survive zoom and export for placed text and native fields', async () => {
+  const { DOMMatrix, Path2D, ImageData } = await import('@napi-rs/canvas');
+  globalThis.DOMMatrix = DOMMatrix; globalThis.Path2D = Path2D; globalThis.ImageData = ImageData;
+  const { getDocument, OPS } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  for (const native of [false, true]) for (const zoom of [0.5, 2]) for (const points of [1, 5.5]) {
+    const pdf = await PDFDocument.create(); const page = pdf.addPage([600, 800]);
+    if (native) {
+      const field = pdf.getForm().createTextField('Name');
+      field.addToPage(page, { x: 100, y: 600, width: 250, height: 30 });
+      field.setText('Old');
+      field.acroField.setDefaultAppearance(`${field.acroField.getDefaultAppearance()}\n1 g`);
+    }
+    const out = await buildSignedPdf({ pdfBytes: await pdf.save(), sigDataUrl: null, page: 1, x: 0, y: 0, width: 200, signatureHeight: 80, rotation: 0,
+      textElements: [{ id: 'small', ...(native ? { fieldName: 'Name' } : {}), page: 1, x: 100 * zoom, y: 170 * zoom, width: 250 * zoom, height: 30 * zoom, fontSize: points * zoom, text: 'Small text' }],
+      pdfViewportSizes: { 1: { width: 600 * zoom, height: 800 * zoom } } });
+    const task = getDocument({ data: out, useSystemFonts: true });
+    try {
+      const result = await task.promise; const pg = await result.getPage(1); const text = await pg.getTextContent();
+      const item = text.items.find(item => item.str === 'Small text');
+      assert.ok(item, `text missing: native=${native}, zoom=${zoom}, points=${points}`);
+      assert.ok(Math.abs(item.height - points) < 0.01, `export size ${item.height} must equal ${points} pt`);
+      const operators = await pg.getOperatorList();
+      const colours = operators.fnArray.flatMap((fn, index) => fn === OPS.setFillRGBColor ? [operators.argsArray[index]] : []);
+      assert.ok(colours.some(args => args[0] === '#000000' || Array.from(args).every(value => value === 0)), 'exported text must use black, including fields originally configured white');
+    } finally { await task.destroy(); }
+  }
+});

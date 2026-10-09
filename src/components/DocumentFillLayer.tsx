@@ -89,7 +89,7 @@ export default function DocumentFillLayer({
 
   const updateText = (id: string, updates: Partial<TextElement>) => {
     const target = textElements.find((item) => item.id === id);
-    onTextElementsChange(textElements.map((item) => (item.id === id || (updates.text !== undefined && target?.fieldName && item.fieldName === target.fieldName) ? { ...item, ...updates } : item)));
+    onTextElementsChange(textElements.map((item) => (item.id === id || ((updates.text !== undefined || updates.fontSize !== undefined) && target?.fieldName && item.fieldName === target.fieldName) ? { ...item, ...updates } : item)));
   };
 
   const beginDrag = (
@@ -203,7 +203,7 @@ export default function DocumentFillLayer({
         return (
           <div
             key={item.id}
-            className={`absolute z-10 rounded border bg-white/80 shadow-sm ${
+            className={`absolute rounded border bg-white/80 text-black shadow-sm ${isSelected ? "z-30" : "z-10"} ${
               isSelected ? "border-[color:var(--color-accent)] ring-1 ring-[color:var(--color-accent)]" : "border-foreground/30"
             }`}
             style={{ left: item.x, top: item.y, width: item.width, height: item.height }}
@@ -233,12 +233,46 @@ export default function DocumentFillLayer({
                 autoFocus={item.text.length === 0}
                 aria-label={`Document text on page ${item.page}`}
                 onChange={(event) => updateText(item.id, { text: event.target.value })}
-                onPointerDown={(event) => event.stopPropagation()}
+                onPointerDown={(event) => { event.stopPropagation(); setSelected({ kind: "text", id: item.id }); }}
+                onFocus={() => setSelected({ kind: "text", id: item.id })}
                 placeholder="Enter text"
-                className="h-full w-full bg-transparent px-2 outline-none"
-                style={{ fontSize: item.fontSize }}
+                className="h-full w-full bg-transparent px-2 text-black placeholder:text-gray-600 outline-none"
+                style={{ fontSize: item.fontSize, color: "#000000", WebkitTextFillColor: "#000000", colorScheme: "light" }}
               />
             </div>
+            {isSelected && !placementMode && (
+              <label
+                className="absolute left-0 flex items-center gap-2 whitespace-nowrap rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-black shadow"
+                style={{ top: item.y >= 48 ? -44 : item.height + 8 }}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                Size
+                <input
+                  key={`${item.id}-${scale}`}
+                  type="number"
+                  min="1"
+                  max="144"
+                  step="0.5"
+                  defaultValue={Number((item.fontSize / scale).toFixed(2))}
+                  aria-label="Text font size in points"
+                  className="w-20 rounded border border-gray-400 bg-white px-2 py-1 text-black outline-none focus:border-[color:var(--color-accent)]"
+                  style={{ colorScheme: "light" }}
+                  onChange={(event) => {
+                    const value = event.target.valueAsNumber;
+                    if (Number.isFinite(value) && value >= 1 && value <= 144) updateText(item.id, { fontSize: value * scale });
+                  }}
+                  onBlur={(event) => {
+                    const value = event.target.valueAsNumber;
+                    const points = Number.isFinite(value) ? clamp(value, 1, 144) : item.fontSize / scale;
+                    event.target.value = String(Number(points.toFixed(2)));
+                    updateText(item.id, { fontSize: points * scale });
+                  }}
+                  onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
+                />
+                pt
+              </label>
+            )}
             {isSelected && !placementMode && !item.fieldName && (
               <div
                 aria-label="Resize text"

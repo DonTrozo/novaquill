@@ -18,6 +18,13 @@ export async function buildSignedPdf({ pdfBytes, sigDataUrl, page, x, y, width, 
 
     const viewportFor = (pageNumber: number) => pdfViewportSizes[pageNumber] || (pageNumber === page ? pdfViewportSize : null);
 
+    // Moving text out of a detected form field turns it into a freely placed overlay.
+    for (const item of textElements) {
+      if (item.sourceFieldName && !textElements.some((other) => other.fieldName === item.sourceFieldName)) {
+        pdfDoc.getForm().getTextField(item.sourceFieldName).setText("");
+      }
+    }
+
     textElements.forEach((item) => {
       const text = item.text.trim();
       const target = pages[item.page - 1];

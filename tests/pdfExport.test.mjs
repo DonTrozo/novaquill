@@ -154,3 +154,24 @@ test('small numeric font sizes survive zoom and export for placed text and nativ
     } finally { await task.destroy(); }
   }
 });
+
+test('moving text out of a native field exports only at its new position', async () => {
+  const pdf = await PDFDocument.create(); const page = pdf.addPage([600, 800]);
+  const field = pdf.getForm().createTextField('Name');
+  field.addToPage(page, { x: 100, y: 600, width: 250, height: 30 }); field.setText('Original field value');
+  const out = await buildSignedPdf({ pdfBytes: await pdf.save(), sigDataUrl: null, page: 1, x: 0, y: 0, width: 200, signatureHeight: 80, rotation: 0,
+    textElements: [{ id: 'moved', sourceFieldName: 'Name', page: 1, x: 200, y: 350, width: 250, height: 30, fontSize: 8, text: 'Moved text' }],
+    pdfViewportSizes: { 1: { width: 600, height: 800 } } });
+  const { DOMMatrix, Path2D, ImageData } = await import('@napi-rs/canvas');
+  globalThis.DOMMatrix = DOMMatrix; globalThis.Path2D = Path2D; globalThis.ImageData = ImageData;
+  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const task = getDocument({ data: out, useSystemFonts: true });
+  try {
+    const doc = await task.promise; const content = await (await doc.getPage(1)).getTextContent();
+    assert.ok(!content.items.some(item => item.str === 'Original field value'));
+    const moved = content.items.filter(item => item.str === 'Moved text');
+    assert.equal(moved.length, 1);
+    assert.equal(moved[0].transform[4], 208);
+    assert.ok(Math.abs(moved[0].transform[5] - (800 - 350 - 15 - 8 * 0.35)) < 0.01);
+  } finally { await task.destroy(); }
+});

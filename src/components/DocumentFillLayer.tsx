@@ -6,6 +6,7 @@ import { type MouseEvent, type PointerEvent, useState } from "react";
 
 export type TextElement = {
   fieldName?: string;
+  sourceFieldName?: string;
   id: string;
   page: number;
   x: number;
@@ -93,7 +94,7 @@ export default function DocumentFillLayer({
   };
 
   const beginDrag = (
-    event: PointerEvent<HTMLDivElement>,
+    event: PointerEvent<HTMLDivElement | HTMLButtonElement>,
     state: Omit<DragState, "startClientX" | "startClientY">
   ) => {
     event.preventDefault();
@@ -131,7 +132,9 @@ export default function DocumentFillLayer({
         height: clamp(dragState.startHeight + dy, MIN_TEXT_HEIGHT, pdfSize.height - dragState.startY),
       });
     } else {
+      const item = textElements.find((item) => item.id === dragState.id);
       updateText(dragState.id, {
+        ...(item?.fieldName ? { fieldName: undefined, sourceFieldName: item.fieldName } : {}),
         x: clamp(dragState.startX + dx, 0, pdfSize.width - dragState.startWidth),
         y: clamp(dragState.startY + dy, 0, pdfSize.height - dragState.startHeight),
       });
@@ -241,12 +244,35 @@ export default function DocumentFillLayer({
               />
             </div>
             {isSelected && !placementMode && (
-              <label
+              <div
                 className="absolute left-0 flex items-center gap-2 whitespace-nowrap rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-black shadow"
-                style={{ top: item.y >= 48 ? -44 : item.height + 8 }}
+                style={{ top: item.y >= 60 ? -56 : item.height + 8, left: clamp(0, -item.x, pdfSize.width - item.x - 280) }}
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
               >
+                <button
+                  type="button"
+                  aria-label="Move text"
+                  className="min-h-10 cursor-move touch-none rounded border border-gray-400 bg-white px-3 text-black"
+                  onPointerDown={(event) => beginDrag(event, {
+                    target: "text", id: item.id, kind: "move",
+                    startX: item.x, startY: item.y, startWidth: item.width, startHeight: item.height,
+                  })}
+                  onKeyDown={(event) => {
+                    const directions: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+                    const direction = directions[event.key];
+                    if (!direction) return;
+                    event.preventDefault(); event.stopPropagation();
+                    const step = (event.shiftKey ? 10 : 1) * scale;
+                    updateText(item.id, {
+                      ...(item.fieldName ? { fieldName: undefined, sourceFieldName: item.fieldName } : {}),
+                      x: clamp(item.x + direction[0] * step, 0, Math.max(0, pdfSize.width - item.width)),
+                      y: clamp(item.y + direction[1] * step, 0, Math.max(0, pdfSize.height - item.height)),
+                    });
+                  }}
+                >
+                  ↔ Move
+                </button>
                 Size
                 <input
                   key={`${item.id}-${scale}`}
@@ -271,7 +297,7 @@ export default function DocumentFillLayer({
                   onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
                 />
                 pt
-              </label>
+              </div>
             )}
             {isSelected && !placementMode && !item.fieldName && (
               <div

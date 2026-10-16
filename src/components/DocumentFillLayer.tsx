@@ -197,7 +197,7 @@ export default function DocumentFillLayer({
             deleteSelected();
           }}
         >
-          Delete selected
+          {selected.kind === "signature" ? "Delete signature" : "Delete text"}
         </button>
       )}
 

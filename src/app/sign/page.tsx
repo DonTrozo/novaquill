@@ -6,7 +6,7 @@ import Link from "next/link";
 import PdfViewer from "@/components/PdfViewer";
 import SignatureTools from "@/components/SignatureTools";
 import DocumentInkLayer, { imageOfInk } from "@/components/DocumentInkLayer";
-import type { InkStroke } from "@/lib/documentInk";
+import { inkGroupId, type InkStroke } from "@/lib/documentInk";
 import InkSelectionLayer from "@/components/InkSelectionLayer";
 import type { DetectedField } from "@/lib/pdfFields";
 import DocumentFillLayer, { type EditorTool, type TextElement } from "@/components/DocumentFillLayer";
@@ -89,6 +89,16 @@ function SigningEditor() {
   const [detectedFields, setDetectedFields] = useState<DetectedField[]>([]);
   const [selectedInk, setSelectedInk] = useState<string | null>(null);
   const inkGroupRef = useRef<string | null>(null);
+  const pageInkGroups = [...new Set(inkStrokes.filter((stroke) => stroke.page === page).map(inkGroupId))];
+  const deletableInkGroup = selectedInk && pageInkGroups.includes(selectedInk)
+    ? selectedInk : pageInkGroups.length === 1 ? pageInkGroups[0] : null;
+  const deleteDrawnSignature = () => {
+    if (!deletableInkGroup) return;
+    setInkStrokes((current) => current.filter((stroke) => stroke.page !== page || inkGroupId(stroke) !== deletableInkGroup));
+    setRedoInk([]);
+    setSelectedInk(null);
+    setSaveInkMessage(null);
+  };
   const preserveForSignIn = async () => {
     if (!file) throw new Error("No document to preserve.");
     await preserveDraft({ sigDataUrl, signaturePage, signaturePlaced, pos, signatureSize, signatureRotation, page, scale, inkStrokes, textElements, pdfPageSizes });
@@ -308,6 +318,13 @@ function SigningEditor() {
             <button type="button" onClick={() => handleScaleChange("increase")} disabled={drawing} aria-label="Zoom in" className="rounded border px-3 py-2">+</button>
           </div>
         </div>
+        {activeTool === "select" && pageInkGroups.length > 0 && <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button type="button" onClick={deleteDrawnSignature} disabled={!deletableInkGroup || drawing}
+            className="min-h-10 rounded-md border border-red-700 bg-background px-3 py-2 text-sm text-red-700 disabled:opacity-50 dark:text-red-400">
+            Delete signature
+          </button>
+          {!deletableInkGroup && <span className="text-xs text-foreground/70">Tap a signature to select it first.</span>}
+        </div>}
         <p className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? "Draw your signature. ShapeAssist is automatic. Tap Done signing, then drag or resize your signature." : activeTool === "select" ? "Scroll or pinch to find your spot. Tap a signature to move it; drag its corner to resize." : activeTool === "text" ? "Tap a highlighted field to fill it, or tap anywhere to add text." : `Tap the document to add ${TOOL_LABELS[activeTool].toLowerCase()}.`}</p>
       </div>
       <details ref={toolsRef} className="mb-3 rounded-lg border border-foreground/15 px-3 py-2">
@@ -321,7 +338,7 @@ function SigningEditor() {
           </div></details>
           {inkStrokes.some((stroke) => stroke.page === page) && <div className="flex flex-wrap gap-2">
             <button type="button" onClick={undoInk} disabled={drawing} className="rounded border px-3 py-2 text-sm">Undo stroke</button>
-            <button type="button" onClick={() => { setInkStrokes((current) => current.filter((stroke) => stroke.page !== page)); setRedoInk([]); }} disabled={drawing} className="rounded border px-3 py-2 text-sm">Clear page ink</button>
+            <button type="button" onClick={() => { setInkStrokes((current) => current.filter((stroke) => stroke.page !== page)); setRedoInk([]); }} disabled={drawing} className="rounded border px-3 py-2 text-sm">Delete all drawn signatures on this page</button>
             <button type="button" onClick={() => void saveDocumentInk()} disabled={savingInk || drawing || !isSignedIn} className="rounded border px-3 py-2 text-sm">{savingInk ? "Saving…" : "Save signature for next time"}</button>
           </div>}
           {redoInk.some((stroke) => stroke.page === page) && <button type="button" onClick={redoLastInk} disabled={drawing} className="rounded border px-3 py-2 text-sm">Redo stroke</button>}
@@ -331,6 +348,7 @@ function SigningEditor() {
             <button type="button" onClick={() => rotateSignature(-ROTATION_STEP)} className="rounded border px-3 py-2 text-sm">Rotate left</button>
             <button type="button" onClick={() => rotateSignature(ROTATION_STEP)} className="rounded border px-3 py-2 text-sm">Rotate right</button>
             <button type="button" onClick={() => setActiveTool("signature")} className="rounded border px-3 py-2 text-sm">Move signature</button>
+            <button type="button" onClick={clearSignature} className="rounded border border-red-700 px-3 py-2 text-sm text-red-700 dark:text-red-400">Delete signature</button>
           </div>}
           {sigDataUrl && signaturePixelWidth > 0 && signaturePixelWidth < signatureSize.width / scale * 2 && <p role="status" className="text-sm">This image may look pixelated. Use a smaller size or a higher-resolution image.</p>}
           <Link href="/upload" className="inline-block text-sm underline">Choose another PDF</Link>

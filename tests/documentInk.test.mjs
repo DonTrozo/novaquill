@@ -36,3 +36,36 @@ test('moving and resizing a completed signature transforms all its strokes while
   assert.deepEqual(next[1].points, [{ x: 120, y: 220 }]); assert.equal(next[0].width, 4);
   assert.equal(next[2], strokes[2]); assert.equal(next[3], strokes[3]); assert.deepEqual(strokes, before);
 });
+
+test('rotation turns every stroke around the signature centre without changing its shape or other signatures', async () => {
+  const { rotateInkGroup } = await import('../src/lib/documentInk.ts');
+  const strokes = [
+    { groupId: 'a', page: 1, points: [{ x: 100, y: 200 }, { x: 140, y: 200 }], width: 4, color: '#000000', viewport: { width: 600, height: 800 } },
+    { groupId: 'a', page: 1, points: [{ x: 120, y: 200 }], width: 4, color: '#000000', viewport: { width: 600, height: 800 } },
+    { groupId: 'b', page: 1, points: [{ x: 300, y: 400 }], width: 2, color: '#000000', viewport: { width: 600, height: 800 } },
+    { groupId: 'a', page: 2, points: [{ x: 300, y: 400 }], width: 2, color: '#000000', viewport: { width: 600, height: 800 } },
+  ];
+  const snapshot = structuredClone(strokes);
+  const next = rotateInkGroup(strokes, 'a', 1, 90, { width: 600, height: 800 });
+  assert.deepEqual(next[0].points, [{ x: 120, y: 180 }, { x: 120, y: 220 }]);
+  assert.deepEqual(next[1].points, [{ x: 120, y: 200 }]);
+  assert.equal(next[0].width, 4); assert.equal(next[2], strokes[2]); assert.equal(next[3], strokes[3]);
+  assert.deepEqual(strokes, snapshot);
+  const reversed = rotateInkGroup(next, 'a', 1, -90, { width: 600, height: 800 });
+  reversed[0].points.forEach((point, index) => { assert.ok(Math.abs(point.x - strokes[0].points[index].x) < 1e-8); assert.ok(Math.abs(point.y - strokes[0].points[index].y) < 1e-8); });
+});
+
+test('rotating near a page edge keeps the complete signature visible without shrinking it', async () => {
+  const { rotateInkGroup } = await import('../src/lib/documentInk.ts');
+  const strokes = [{ groupId: 'edge', page: 1, points: [{ x: 10, y: 10 }, { x: 100, y: 10 }], width: 4, color: '#000000', viewport: { width: 600, height: 800 } }];
+  const next = rotateInkGroup(strokes, 'edge', 1, 90, { width: 600, height: 800 });
+  const bounds = inkBounds(next);
+  assert.ok(bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= 600 && bounds.y + bounds.height <= 800);
+  assert.ok(Math.abs(Math.hypot(next[0].points[1].x - next[0].points[0].x, next[0].points[1].y - next[0].points[0].y) - 90) < 1e-8);
+});
+
+test('rotation that cannot fit on the page preserves the original signature', async () => {
+  const { rotateInkGroup } = await import('../src/lib/documentInk.ts');
+  const strokes = [{ groupId: 'wide', page: 1, points: [{ x: 10, y: 40 }, { x: 500, y: 40 }], width: 4, color: '#000000', viewport: { width: 600, height: 100 } }];
+  assert.equal(rotateInkGroup(strokes, 'wide', 1, 90, { width: 600, height: 100 }), strokes);
+});

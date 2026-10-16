@@ -6,7 +6,7 @@ import Link from "next/link";
 import PdfViewer from "@/components/PdfViewer";
 import SignatureTools from "@/components/SignatureTools";
 import DocumentInkLayer, { imageOfInk } from "@/components/DocumentInkLayer";
-import { inkGroupId, type InkStroke } from "@/lib/documentInk";
+import { inkGroupId, rotateInkGroup, type InkStroke } from "@/lib/documentInk";
 import InkSelectionLayer from "@/components/InkSelectionLayer";
 import type { DetectedField } from "@/lib/pdfFields";
 import DocumentFillLayer, { type EditorTool, type TextElement } from "@/components/DocumentFillLayer";
@@ -90,13 +90,21 @@ function SigningEditor() {
   const [selectedInk, setSelectedInk] = useState<string | null>(null);
   const inkGroupRef = useRef<string | null>(null);
   const pageInkGroups = [...new Set(inkStrokes.filter((stroke) => stroke.page === page).map(inkGroupId))];
-  const deletableInkGroup = selectedInk && pageInkGroups.includes(selectedInk)
+  const editableInkGroup = selectedInk && pageInkGroups.includes(selectedInk)
     ? selectedInk : pageInkGroups.length === 1 ? pageInkGroups[0] : null;
   const deleteDrawnSignature = () => {
-    if (!deletableInkGroup) return;
-    setInkStrokes((current) => current.filter((stroke) => stroke.page !== page || inkGroupId(stroke) !== deletableInkGroup));
+    if (!editableInkGroup) return;
+    setInkStrokes((current) => current.filter((stroke) => stroke.page !== page || inkGroupId(stroke) !== editableInkGroup));
     setRedoInk([]);
     setSelectedInk(null);
+    setSaveInkMessage(null);
+  };
+  const rotateDrawnSignature = (angle: number) => {
+    if (!editableInkGroup || !pdfSize) return;
+    const next = rotateInkGroup(inkStrokes, editableInkGroup, page, angle, { width: pdfSize.width / scale, height: pdfSize.height / scale });
+    if (next === inkStrokes) { setSaveInkMessage("Make this signature smaller before rotating it so it fits on the page."); return; }
+    setInkStrokes(next);
+    setRedoInk([]);
     setSaveInkMessage(null);
   };
   const preserveForSignIn = async () => {
@@ -319,11 +327,16 @@ function SigningEditor() {
           </div>
         </div>
         {activeTool === "select" && pageInkGroups.length > 0 && <div className="mt-2 flex flex-wrap items-center gap-2">
-          <button type="button" onClick={deleteDrawnSignature} disabled={!deletableInkGroup || drawing}
+          <button type="button" onClick={() => rotateDrawnSignature(-ROTATION_STEP)} disabled={!editableInkGroup || drawing || !pdfReady}
+            aria-label="Rotate signature left 15 degrees" className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">↶ Rotate left</button>
+          <button type="button" onClick={() => rotateDrawnSignature(ROTATION_STEP)} disabled={!editableInkGroup || drawing || !pdfReady}
+            aria-label="Rotate signature right 15 degrees" className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">↷ Rotate right</button>
+          <button type="button" onClick={deleteDrawnSignature} disabled={!editableInkGroup || drawing}
             className="min-h-10 rounded-md border border-red-700 bg-background px-3 py-2 text-sm text-red-700 disabled:opacity-50 dark:text-red-400">
             Delete signature
           </button>
-          {!deletableInkGroup && <span className="text-xs text-foreground/70">Tap a signature to select it first.</span>}
+          {!editableInkGroup && <span className="text-xs text-foreground/70">Tap a signature to select it first.</span>}
+          {saveInkMessage && <span role="status" className="text-xs text-foreground/70">{saveInkMessage}</span>}
         </div>}
         <p className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? "Draw your signature. ShapeAssist is automatic. Tap Done signing, then drag or resize your signature." : activeTool === "select" ? "Scroll or pinch to find your spot. Tap a signature to move it; drag its corner to resize." : activeTool === "text" ? "Tap a highlighted field to fill it, or tap anywhere to add text." : `Tap the document to add ${TOOL_LABELS[activeTool].toLowerCase()}.`}</p>
       </div>

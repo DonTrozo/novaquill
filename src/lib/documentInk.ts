@@ -21,6 +21,30 @@ export function transformInkGroup(strokes: InkStroke[], groupId: string, from: {
   });
 }
 
+// Rotate the actual vector points so the editor, saved drafts and PDF export agree.
+export function rotateInkGroup(strokes: InkStroke[], groupId: string, page: number, angle: number, size: { width: number; height: number }): InkStroke[] {
+  const matches = (stroke: InkStroke) => stroke.page === page && inkGroupId(stroke) === groupId;
+  const bounds = inkBounds(strokes.filter(matches));
+  if (!bounds || !Number.isFinite(angle)) return strokes;
+  const cx = bounds.x + bounds.width / 2, cy = bounds.y + bounds.height / 2;
+  const radians = angle * Math.PI / 180, cos = Math.cos(radians), sin = Math.sin(radians);
+  const rotated = strokes.map((stroke) => !matches(stroke) ? stroke : {
+    ...stroke,
+    points: stroke.points.map((point) => ({
+      x: cx + (point.x - cx) * cos - (point.y - cy) * sin,
+      y: cy + (point.x - cx) * sin + (point.y - cy) * cos,
+    })),
+  });
+  const next = inkBounds(rotated.filter(matches))!;
+  // Keep the full signature on the page without changing its size or shape.
+  if (next.width > size.width || next.height > size.height) return strokes;
+  const dx = Math.max(0, -next.x) + Math.min(0, size.width - next.x - next.width);
+  const dy = Math.max(0, -next.y) + Math.min(0, size.height - next.y - next.height);
+  return rotated.map((stroke) => !matches(stroke) ? stroke : {
+    ...stroke, points: stroke.points.map((point) => ({ x: point.x + dx, y: point.y + dy })),
+  });
+}
+
 export function smoothInk(points: InkPoint[], strength: number): InkPoint[] {
   const amount = Math.max(0, Math.min(1, strength));
   if (amount === 0 || points.length < 3) return points.map((point) => ({ ...point }));

@@ -3,12 +3,14 @@
 import { useLanguage } from "@/context/LanguageContext";
 
 import Image from "next/image";
+import { layoutText, cssFont, type TextGeometry } from "@/lib/textLayout";
 import type { DetectedField } from "@/lib/pdfFields";
-import { type MouseEvent, type PointerEvent, useState } from "react";
+import { type MouseEvent, type PointerEvent, useEffect, useRef, useState } from "react";
 
-export type TextElement = {
+export type TextElement = TextGeometry & {
   fieldName?: string;
   sourceFieldName?: string;
+  detectedFieldId?: string;
   id: string;
   page: number;
   x: number;
@@ -88,6 +90,13 @@ export default function DocumentFillLayer({
 }) {
   const { t } = useLanguage();
   const [selected, setSelected] = useState<Selected>(null);
+  const [editingText, setEditingText] = useState<string | null>(null);
+  const knownTextIds = useRef(new Set(textElements.map((item) => item.id)));
+  useEffect(() => {
+    const added = textElements.findLast((item) => item.page === page && !knownTextIds.current.has(item.id));
+    knownTextIds.current = new Set(textElements.map((item) => item.id));
+    if (added) { setSelected({ kind: "text", id: added.id }); setEditingText(added.id); }
+  }, [textElements, page]);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [rotationDrag, setRotationDrag] = useState<{ cx: number; cy: number; angle: number; rotation: number } | null>(null);
 
@@ -170,6 +179,8 @@ export default function DocumentFillLayer({
   const handleCanvasClick = (event: MouseEvent<HTMLDivElement>) => {
     if (!placementMode) {
       setSelected(null);
+      setEditingText(null);
+      setEditingText(null);
       return;
     }
 
@@ -192,7 +203,7 @@ export default function DocumentFillLayer({
       onPointerCancel={endDrag}
       onClick={handleCanvasClick}
     >
-      {activeTool === "text" && detectedFields.filter((field) => !textElements.some((item) => item.id === `field-${page}-${field.id}`)).map((field) => <button key={field.id} type="button" aria-label={t("Fill {label}", { label: field.label })} className="absolute z-10 rounded border-2 border-dashed border-[color:var(--color-accent)] bg-cyan-500/10 text-left" style={{ left: field.x, top: field.y, width: field.width, height: field.height }}
+      {(activeTool === "text" || activeTool === "select") && detectedFields.filter((field) => !textElements.some((item) => item.id === `field-${page}-${field.id}` || (item.page === page && item.detectedFieldId === field.id))).map((field) => <button key={field.id} type="button" aria-label={t("Fill {label}", { label: field.label })} className={`absolute z-10 text-left ${activeTool === "text" ? "bg-cyan-500/10 hover:bg-cyan-500/20" : "bg-transparent hover:bg-cyan-500/10"}`} style={{ left: field.x, top: field.y, width: field.width, height: field.height }}
         onClick={(event) => { event.stopPropagation(); onFieldPlaced?.(field); }} />)}
       {placementMode && (
         <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-full border border-foreground/10 bg-background/90 px-3 py-1 text-xs shadow">{t("Click where you want to place it")}</div>
@@ -213,16 +224,18 @@ export default function DocumentFillLayer({
 
       {pageTextElements.map((item) => {
         const isSelected = selected?.kind === "text" && selected.id === item.id;
+        const layout = layoutText(item);
+        const isEditing = editingText === item.id;
         return (
           <div
             key={item.id}
-            className={`absolute rounded border bg-white/80 text-black shadow-sm ${isSelected ? "z-30" : "z-10"} ${
-              isSelected ? "border-[color:var(--color-accent)] ring-1 ring-[color:var(--color-accent)]" : "border-foreground/30"
-            }`}
+            data-text-item
+            className={`absolute text-black ${isSelected ? "z-30 ring-1 ring-[color:var(--color-accent)]" : "z-10"}`}
             style={{ left: item.x, top: item.y, width: item.width, height: item.height }}
             onClick={(event) => {
               event.stopPropagation();
               setSelected({ kind: "text", id: item.id });
+              setEditingText(item.id);
             }}
           >
             <div
@@ -241,17 +254,31 @@ export default function DocumentFillLayer({
                 });
               }}
             >
-              <input
+              {isEditing ? <input
                 value={item.text}
-                autoFocus={item.text.length === 0}
+                autoFocus
                 aria-label={t("Document text on page {page}", { page: item.page })}
                 onChange={(event) => updateText(item.id, { text: event.target.value })}
-                onPointerDown={(event) => { event.stopPropagation(); setSelected({ kind: "text", id: item.id }); }}
-                onFocus={() => setSelected({ kind: "text", id: item.id })}
+                onPointerDown={(event) => event.stopPropagation()}
+                onFocus={() => { setSelected({ kind: "text", id: item.id }); setEditingText(item.id); }}
+                onBlur={(event) => {
+                  setEditingText(null);
+                  if (!event.currentTarget.closest("[data-text-item]")?.contains(event.relatedTarget as Node | null)) setSelected(null);
+                }}
+                onKeyDown={(event) => { if (event.key === "Enter" || event.key === "Escape") event.currentTarget.blur(); }}
                 placeholder={t("Enter text")}
-                className="h-full w-full bg-transparent px-2 text-black placeholder:text-gray-600 outline-none"
-                style={{ fontSize: item.fontSize, color: "#000000", WebkitTextFillColor: "#000000", colorScheme: "light" }}
-              />
+                className="h-full w-full border-0 bg-transparent outline-none text-black placeholder:text-gray-600"
+                style={{ ...cssFont(item.fontName), padding: `0 ${layout.padding}px`, fontSize: layout.size, color: "#000000", WebkitTextFillColor: "#000000", colorScheme: "light", textSizeAdjust: "none", boxShadow: "none", borderRadius: 0 }}
+              /> : <button type="button" aria-label={t("Document text on page {page}", { page: item.page })}
+                className="block h-full w-full border-0 bg-transparent p-0 text-left"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => { event.stopPropagation(); setSelected({ kind: "text", id: item.id }); setEditingText(item.id); }}>
+                <svg width={item.width} height={item.height} className="block overflow-hidden" aria-hidden="true">
+                  <text x={layout.padding} y={layout.baseline} fill="#000000" style={{ ...cssFont(item.fontName), fontSize: layout.size }}
+                    textLength={layout.textWidth || undefined} lengthAdjust="spacingAndGlyphs">{item.text}</text>
+                </svg>
+              </button>}
+
             </div>
             {isSelected && !placementMode && (
               <div
@@ -280,32 +307,11 @@ export default function DocumentFillLayer({
                       y: clamp(item.y + direction[1] * step, 0, Math.max(0, pdfSize.height - item.height)),
                     });
                   }}
-                >{t("↔ Move")}</button>{t("Size")}<input
-                  key={`${item.id}-${scale}`}
-                  type="number"
-                  min="1"
-                  max="144"
-                  step="0.5"
-                  defaultValue={Number((item.fontSize / scale).toFixed(2))}
-                  aria-label={t("Text font size in points")}
-                  className="w-20 rounded border border-gray-400 bg-white px-2 py-1 text-black outline-none focus:border-[color:var(--color-accent)]"
-                  style={{ colorScheme: "light" }}
-                  onChange={(event) => {
-                    const value = event.target.valueAsNumber;
-                    if (Number.isFinite(value) && value >= 1 && value <= 144) updateText(item.id, { fontSize: value * scale });
-                  }}
-                  onBlur={(event) => {
-                    const value = event.target.valueAsNumber;
-                    const points = Number.isFinite(value) ? clamp(value, 1, 144) : item.fontSize / scale;
-                    event.target.value = String(Number(points.toFixed(2)));
-                    updateText(item.id, { fontSize: points * scale });
-                  }}
-                  onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
-                />
+                >{t("↔ Move")}</button>{t("Size")}<TextFontSize value={layout.size / scale} label={t("Text font size in points")} onChange={(points) => updateText(item.id, { fontSize: points * scale, preferredFontSize: points * scale })} />
                 pt
               </div>
             )}
-            {isSelected && !placementMode && !item.fieldName && (
+            {isSelected && !placementMode && !item.fieldName && !item.detectedFieldId && (
               <div
                 aria-label={t("Resize text")}
                 className="absolute -bottom-3 -right-3 h-7 w-7 cursor-se-resize touch-none rounded-full border border-[color:var(--color-accent)] bg-background shadow"
@@ -403,4 +409,15 @@ export default function DocumentFillLayer({
       )}
     </div>
   );
+}
+
+function TextFontSize({ value, label, onChange }: { value: number; label: string; onChange: (value: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return <input type="number" min="1" max="144" step="0.5" inputMode="decimal" aria-label={label}
+    className="w-20 rounded border border-gray-400 bg-white px-2 py-1 text-base text-black focus:border-[color:var(--color-accent)]"
+    style={{ colorScheme: "light" }} value={draft ?? Number(value.toFixed(2))}
+    onFocus={() => setDraft(String(Number(value.toFixed(2))))}
+    onChange={(event) => { setDraft(event.target.value); const number = event.target.valueAsNumber; if (Number.isFinite(number) && number >= 1 && number <= 144) onChange(number); }}
+    onBlur={() => { const number = Number(draft); if (draft && Number.isFinite(number)) onChange(clamp(number, 1, 144)); setDraft(null); }}
+    onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} />;
 }

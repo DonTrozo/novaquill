@@ -2,6 +2,7 @@
 export const portuguese: Record<string, string> = {
   "{used} documents · Unlimited signing": "{used} documentos · Assinaturas ilimitadas",
   "{used} / {limit} documents this month": "{used} / {limit} documentos este mês",
+  "Tap an empty box to fill it. Scroll or pinch to navigate. Tap a signature to move, resize or rotate it.": "Toque numa caixa vazia para a preencher. Desloque a página ou use dois dedos para navegar. Toque numa assinatura para a mover, redimensionar ou rodar.",
   "Registration failed": "Não foi possível criar a conta",
   "Create account": "Criar conta",
   "Name (optional)": "Nome (opcional)",

@@ -65,7 +65,15 @@ function PdfCanvas({ source, page, scale, onSize, onMeta, onFields }: {
         // Field detection must not prevent an otherwise valid PDF from rendering.
         try {
           const [annotations, text, operators] = await Promise.all([pg.getAnnotations(), pg.getTextContent(), pg.getOperatorList()]);
-          if (!cancelled) onFieldsRef.current(detectPdfFields(annotations, text.items.filter((item) => "str" in item), operators, OPS, viewport, scale));
+          const styles: Record<string, { fontName?: string; fontFamily?: string; bold?: boolean; italic?: boolean }> = { ...text.styles };
+          for (const item of text.items) {
+            if (!("str" in item)) continue;
+            try {
+              const font = pg.commonObjs.get(item.fontName) as { name?: string; fallbackName?: string; bold?: boolean; italic?: boolean };
+              styles[item.fontName] = { ...styles[item.fontName], fontName: font.name, fontFamily: font.fallbackName || styles[item.fontName]?.fontFamily, bold: font.bold, italic: font.italic };
+            } catch { /* Nearby text styles still provide a family fallback. */ }
+          }
+          if (!cancelled) onFieldsRef.current(detectPdfFields(annotations, text.items.filter((item) => "str" in item), operators, OPS, viewport, scale, styles));
         } catch { if (!cancelled) onFieldsRef.current([]); }
       }
       const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);

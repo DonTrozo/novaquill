@@ -5,7 +5,7 @@ import type { InkStroke } from "./documentInk";
 export function documentVersion(input: {
   fileName?: string; fileSize?: number; fileLastModified?: number;
   sigDataUrl: string | null; page: number; x: number; y: number; width: number; height: number; rotation: number;
-  textElements: { page: number; x: number; y: number; width: number; height: number; text: string; fontSize: number }[];
+  textElements: { page: number; x: number; y: number; width: number; height: number; text: string; fontSize: number; preferredFontSize?: number; fontName?: string; autoFit?: boolean; padding?: number }[];
   inkStrokes: InkStroke[];
   viewportSizes: Record<number, { width: number; height: number }>;
 }) {
@@ -17,7 +17,7 @@ export function documentVersion(input: {
   return JSON.stringify({
     file: [input.fileName, input.fileSize, input.fileLastModified],
     signature: input.sigDataUrl ? [input.sigDataUrl, input.page, input.rotation, ...normalise(input.page, input.x, input.y, input.width, input.height)] : null,
-    text: input.textElements.map((item) => [item.page, item.text, rounded(item.fontSize / (input.viewportSizes[item.page]?.height || 1)), ...normalise(item.page, item.x, item.y, item.width, item.height)]),
+    text: input.textElements.map((item) => [item.page, item.text, item.fontName ?? "Helvetica", item.autoFit ?? false, rounded((item.preferredFontSize ?? item.fontSize) / (input.viewportSizes[item.page]?.height || 1)), item.padding === undefined ? null : rounded(item.padding / (input.viewportSizes[item.page]?.height || 1)), rounded(item.fontSize / (input.viewportSizes[item.page]?.height || 1)), ...normalise(item.page, item.x, item.y, item.width, item.height)]),
     ink: input.inkStrokes,
   });
 }

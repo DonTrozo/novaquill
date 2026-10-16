@@ -10,6 +10,7 @@ import SignatureTools from "@/components/SignatureTools";
 import DocumentInkLayer, { imageOfInk } from "@/components/DocumentInkLayer";
 import { inkGroupId, rotateInkGroup, type InkStroke } from "@/lib/documentInk";
 import InkSelectionLayer from "@/components/InkSelectionLayer";
+import { scaleText } from "@/lib/textLayout";
 import type { DetectedField } from "@/lib/pdfFields";
 import DocumentFillLayer, { type EditorTool, type TextElement } from "@/components/DocumentFillLayer";
 import { useRef, useState } from "react";
@@ -121,7 +122,7 @@ function SigningEditor() {
     if (toolsRef.current) toolsRef.current.open = false;
   };
   const placeDetectedField = (field: DetectedField) => {
-    setTextElements((current) => [...current, { id: `field-${page}-${field.id}`, page, x: field.x, y: field.y, width: field.width, height: field.height, fontSize: Math.min(14 * scale, field.height * 0.6), text: field.value ?? "", fieldName: field.fieldName }]);
+    setTextElements((current) => [...current, { id: `field-${page}-${field.id}`, page, x: field.x, y: field.y, width: field.width, height: field.height, fontSize: field.fontSize ?? Math.min(11 * scale, field.height * 0.6), preferredFontSize: field.fontSize ?? 11 * scale, fontName: field.fontName ?? "Helvetica", autoFit: true, padding: 2 * scale, detectedFieldId: field.id, text: field.value ?? "", fieldName: field.fieldName }]);
     setActiveTool("select");
   };
   const isSignedIn = status === "authenticated";
@@ -151,7 +152,7 @@ function SigningEditor() {
     if (viewer) zoomScrollRef.current = { left: (viewer.scrollLeft + viewer.clientWidth / 2) * ratio - viewer.clientWidth / 2, top: (viewer.scrollTop + viewer.clientHeight / 2) * ratio - viewer.clientHeight / 2 };
     setPos((current) => ({ x: current.x * ratio, y: current.y * ratio }));
     setSignatureSize((current) => ({ width: current.width * ratio, height: current.height * ratio }));
-    setTextElements((current) => current.map((item) => ({ ...item, x: item.x * ratio, y: item.y * ratio, width: item.width * ratio, height: item.height * ratio, fontSize: item.fontSize * ratio })));
+    setTextElements((current) => current.map((item) => scaleText(item, ratio)));
     setPdfPageSizes((current) => Object.fromEntries(Object.entries(current).map(([key, size]) => [key, { width: size.width * ratio, height: size.height * ratio }])));
     setScale(next);
   };
@@ -198,11 +199,12 @@ function SigningEditor() {
   const addTextElement = (point: Point, tool: EditorTool) => {
     if (!pdfSize) return;
 
+    const nearestField = [...detectedFields].sort((a, b) => Math.hypot(a.x - point.x, a.y - point.y) - Math.hypot(b.x - point.x, b.y - point.y))[0];
     const defaults = {
       text: "",
       width: Math.min(220, Math.max(80, pdfSize.width - 60)),
       height: 36,
-      fontSize: 14,
+      fontSize: nearestField?.fontSize ? nearestField.fontSize / scale : 11,
     };
 
     const config =
@@ -214,8 +216,8 @@ function SigningEditor() {
             ? { text: "", width: 80, height: 34, fontSize: 16 }
             : defaults;
 
-    const x = clamp(point.x - config.width / 2, 0, pdfSize.width - config.width);
-    const y = clamp(point.y - config.height / 2, 0, pdfSize.height - config.height);
+    const x = clamp(point.x - config.width * scale / 2, 0, Math.max(0, pdfSize.width - config.width * scale));
+    const y = clamp(point.y - config.height * scale / 2, 0, Math.max(0, pdfSize.height - config.height * scale));
 
     setTextElements((current) => [
       ...current,
@@ -224,10 +226,14 @@ function SigningEditor() {
         page,
         x,
         y,
-            width: config.width,
-            height: config.height,
+            width: config.width * scale,
+            height: config.height * scale,
         text: config.text,
-        fontSize: config.fontSize,
+        fontSize: config.fontSize * scale,
+        preferredFontSize: config.fontSize * scale,
+        autoFit: true,
+        fontName: nearestField?.fontName ?? "Helvetica",
+        padding: 2 * scale,
       },
     ]);
     setActiveTool("select");
@@ -336,7 +342,7 @@ function SigningEditor() {
           {!editableInkGroup && <span className="text-xs text-foreground/70">{t("Tap a signature to select it first.")}</span>}
           {saveInkMessage && <span role="status" className="text-xs text-foreground/70">{t(saveInkMessage)}</span>}
         </div>}
-        <p className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? t("Draw your signature. ShapeAssist is automatic. Tap Done signing, then move, resize or freely rotate your signature.") : activeTool === "select" ? t("Scroll or pinch to find your spot. Tap a signature to select it. Drag ↻ to rotate freely or its corner to resize.") : activeTool === "text" ? t("Tap a highlighted field to fill it, or tap anywhere to add text.") : t("Tap the document to add {tool}.", { tool: t(TOOL_LABELS[activeTool]).toLowerCase() })}</p>
+        <p className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? t("Draw your signature. ShapeAssist is automatic. Tap Done signing, then move, resize or freely rotate your signature.") : activeTool === "select" ? t("Tap an empty box to fill it. Scroll or pinch to navigate. Tap a signature to move, resize or rotate it.") : activeTool === "text" ? t("Tap a highlighted field to fill it, or tap anywhere to add text.") : t("Tap the document to add {tool}.", { tool: t(TOOL_LABELS[activeTool]).toLowerCase() })}</p>
       </div>
       <details ref={toolsRef} className="mb-3 rounded-lg border border-foreground/15 px-3 py-2">
         <summary className="cursor-pointer text-sm">{t("More tools")}</summary>

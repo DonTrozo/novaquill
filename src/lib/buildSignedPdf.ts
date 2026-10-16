@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, degrees, rgb, LineCapStyle } from "pdf-lib";
 import { pagePlacement, signaturePlacement, type ViewportSize } from "./pdfPlacement";
 import { inkPath, type InkStroke } from "./documentInk";
+import { layoutText } from "./textLayout";
 import type { TextElement } from "../components/DocumentFillLayer";
 
 export async function buildSignedPdf({ pdfBytes, sigDataUrl, page, x, y, width, signatureHeight, rotation, textElements, pdfViewportSize, pdfViewportSizes, inkStrokes = [] }: {
@@ -14,7 +15,8 @@ export async function buildSignedPdf({ pdfBytes, sigDataUrl, page, x, y, width, 
 }) {
     const pdfDoc = await PDFDocument.load(pdfBytes);
     const pages = pdfDoc.getPages();
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const names = [...new Set(textElements.map((item) => layoutText(item).fontName))];
+    const fonts = new Map(await Promise.all(names.map(async (name) => [name, await pdfDoc.embedFont(name as StandardFonts)] as const)));
 
     const viewportFor = (pageNumber: number) => pdfViewportSizes[pageNumber] || (pageNumber === page ? pdfViewportSize : null);
 
@@ -26,7 +28,9 @@ export async function buildSignedPdf({ pdfBytes, sigDataUrl, page, x, y, width, 
     }
 
     textElements.forEach((item) => {
-      const text = item.text.trim();
+      const text = item.text;
+      const layout = layoutText(item);
+      const font = fonts.get(layout.fontName)!;
       const target = pages[item.page - 1];
       if (!target) throw new Error("The text belongs to a page that no longer exists");
       const map = pagePlacement(target, viewportFor(item.page));
@@ -34,15 +38,15 @@ export async function buildSignedPdf({ pdfBytes, sigDataUrl, page, x, y, width, 
         const field = pdfDoc.getForm().getTextField(item.fieldName);
         field.setText(text);
         field.acroField.setDefaultAppearance(`${field.acroField.getDefaultAppearance() ?? ""}\n0 g`);
-        field.setFontSize(item.fontSize * map.sy);
+        field.setFontSize(layout.size * map.sy);
         field.updateAppearances(font);
         return;
       }
-      if (!text) return;
-      const baseline = map.point(item.x + 8, item.y + item.height / 2 + item.fontSize * 0.35);
+      if (!text.trim()) return;
+      const baseline = map.point(item.x + layout.padding, item.y + layout.baseline);
       target.drawText(text, {
         ...baseline,
-        size: item.fontSize * map.sy,
+        size: layout.size * map.sy,
         rotate: degrees(map.angle),
         font,
         color: rgb(0, 0, 0),

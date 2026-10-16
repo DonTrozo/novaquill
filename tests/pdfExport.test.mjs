@@ -14,6 +14,7 @@ const path = new URL('../src/lib/buildSignedPdf.ts', import.meta.url);
 const js = ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
   .replace('"pdf-lib"', JSON.stringify(new URL(`file://${require.resolve('pdf-lib')}`).href))
   .replace('"./pdfPlacement"', JSON.stringify(new URL('../src/lib/pdfPlacement.ts', import.meta.url).href))
+  .replace('"./textLayout"', JSON.stringify(new URL('../src/lib/textLayout.ts', import.meta.url).href))
   .replace('"./documentInk"', JSON.stringify(new URL('../src/lib/documentInk.ts', import.meta.url).href));
 const { buildSignedPdf } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 
@@ -174,4 +175,32 @@ test('moving text out of a native field exports only at its new position', async
     assert.equal(moved[0].transform[4], 208);
     assert.ok(Math.abs(moved[0].transform[5] - (800 - 350 - 15 - 8 * 0.35)) < 0.01);
   } finally { await task.destroy(); }
+});
+
+test('auto-fitted table entries preserve font, cell bounds and page position at different zoom levels', async () => {
+  const { DOMMatrix, Path2D, ImageData } = await import('@napi-rs/canvas');
+  globalThis.DOMMatrix = DOMMatrix; globalThis.Path2D = Path2D; globalThis.ImageData = ImageData;
+  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const pdf = await PDFDocument.create(); pdf.addPage([600, 800]); pdf.addPage([420, 600]);
+  const bytes = await pdf.save(); let previous;
+  for (const zoom of [0.5, 1.5, 2]) {
+    const elements = [1, 2].map(page => ({ id: `table-${page}`, page, x: 180 * zoom, y: 150 * zoom, width: 130 * zoom, height: 20 * zoom,
+      fontSize: 10 * zoom, preferredFontSize: 10 * zoom, fontName: 'Times-Roman', autoFit: true, padding: 2 * zoom, text: 'Synthetic Longname Example For Fitting' }));
+    const out = await buildSignedPdf({ pdfBytes: bytes, sigDataUrl: null, page: 1, x: 0, y: 0, width: 200, signatureHeight: 80, rotation: 0, textElements: elements,
+      pdfViewportSizes: { 1: { width: 600 * zoom, height: 800 * zoom }, 2: { width: 420 * zoom, height: 600 * zoom } } });
+    const task = getDocument({ data: out, useSystemFonts: true });
+    try {
+      const doc = await task.promise; const actual = [];
+      for (const number of [1, 2]) {
+        const content = await (await doc.getPage(number)).getTextContent();
+        const item = content.items.find(item => item.str === elements[0].text);
+        assert.ok(item); assert.ok(item.width <= 126 + 0.01); assert.ok(item.height < 10);
+        assert.equal(item.transform[4], 182);
+        assert.equal(content.styles[item.fontName].fontFamily, 'serif');
+        actual.push([item.height, item.width, ...item.transform]);
+      }
+      if (previous) actual.forEach((values, index) => values.forEach((value, column) => assert.ok(Math.abs(value - previous[index][column]) < 0.01, 'zoom must not change exported document geometry')));
+      previous = actual;
+    } finally { await task.destroy(); }
+  }
 });

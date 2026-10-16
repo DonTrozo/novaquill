@@ -338,7 +338,7 @@ function SigningEditor() {
           {!editableInkGroup && <span className="text-xs text-foreground/70">Tap a signature to select it first.</span>}
           {saveInkMessage && <span role="status" className="text-xs text-foreground/70">{saveInkMessage}</span>}
         </div>}
-        <p className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? "Draw your signature. ShapeAssist is automatic. Tap Done signing, then drag or resize your signature." : activeTool === "select" ? "Scroll or pinch to find your spot. Tap a signature to move it; drag its corner to resize." : activeTool === "text" ? "Tap a highlighted field to fill it, or tap anywhere to add text." : `Tap the document to add ${TOOL_LABELS[activeTool].toLowerCase()}.`}</p>
+        <p className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? "Draw your signature. ShapeAssist is automatic. Tap Done signing, then move, resize or freely rotate your signature." : activeTool === "select" ? "Scroll or pinch to find your spot. Tap a signature to select it. Drag ↻ to rotate freely or its corner to resize." : activeTool === "text" ? "Tap a highlighted field to fill it, or tap anywhere to add text." : `Tap the document to add ${TOOL_LABELS[activeTool].toLowerCase()}.`}</p>
       </div>
       <details ref={toolsRef} className="mb-3 rounded-lg border border-foreground/15 px-3 py-2">
         <summary className="cursor-pointer text-sm">More tools</summary>
@@ -387,7 +387,7 @@ function SigningEditor() {
           <PdfViewer onFields={setDetectedFields} onSize={handlePdfSize} onMeta={({ numPages }) => setNumPages(numPages)} page={page} scale={scale} />
           {pdfSize && pdfReady && <DocumentFillLayer scale={scale} pdfSize={pdfSize} page={page} activeTool={activeTool === "draw" ? "select" : activeTool}
             sigDataUrl={sigDataUrl} signaturePlaced={signaturePlaced && signaturePage === page} signaturePosition={pos} signatureSize={signatureSize} signatureRotation={signatureRotation}
-            detectedFields={detectedFields} onFieldPlaced={placeDetectedField} textElements={textElements} onToolPlaced={handleToolPlaced} onSignaturePositionChange={setPos} onSignatureSizeChange={setSignatureSize} onTextElementsChange={setTextElements} onClearSignature={clearSignature} />}
+            detectedFields={detectedFields} onFieldPlaced={placeDetectedField} textElements={textElements} onToolPlaced={handleToolPlaced} onSignaturePositionChange={setPos} onSignatureSizeChange={setSignatureSize} onSignatureRotationChange={setSignatureRotation} onTextElementsChange={setTextElements} onClearSignature={clearSignature} />}
           {pdfSize && pdfReady && <DocumentInkLayer size={pdfSize} scale={scale} page={page} enabled={activeTool === "draw"} strokes={inkStrokes} color={inkColor} penWidth={inkWidth}
             onStroke={(stroke) => { setInkStrokes((current) => [...current, { ...stroke, groupId: inkGroupRef.current ?? undefined }]); setRedoInk([]); setSaveInkMessage(null); }} onDrawingChange={setDrawing} />}
           {pdfSize && pdfReady && activeTool === "select" && <InkSelectionLayer strokes={inkStrokes} page={page} scale={scale} size={pdfSize} selected={selectedInk} onSelect={setSelectedInk} onChange={(next) => { setInkStrokes(next); setRedoInk([]); }} />}

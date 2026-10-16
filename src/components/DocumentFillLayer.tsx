@@ -59,6 +59,7 @@ export default function DocumentFillLayer({
   onToolPlaced,
   onSignaturePositionChange,
   onSignatureSizeChange,
+  onSignatureRotationChange,
   onTextElementsChange,
   onClearSignature,
   detectedFields = [],
@@ -77,6 +78,7 @@ export default function DocumentFillLayer({
   onToolPlaced: (point: Point) => void;
   onSignaturePositionChange: (position: Point) => void;
   onSignatureSizeChange: (size: Size) => void;
+  onSignatureRotationChange: (rotation: number) => void;
   onTextElementsChange: (elements: TextElement[]) => void;
   onClearSignature: () => void;
   detectedFields?: DetectedField[];
@@ -84,6 +86,7 @@ export default function DocumentFillLayer({
 }) {
   const [selected, setSelected] = useState<Selected>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [rotationDrag, setRotationDrag] = useState<{ cx: number; cy: number; angle: number; rotation: number } | null>(null);
 
   const pageTextElements = textElements.filter((item) => item.page === page);
   const placementMode = activeTool !== "select";
@@ -104,6 +107,11 @@ export default function DocumentFillLayer({
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (rotationDrag) {
+      const angle = Math.atan2(event.clientY - rotationDrag.cy, event.clientX - rotationDrag.cx);
+      onSignatureRotationChange(((rotationDrag.rotation + (angle - rotationDrag.angle) * 180 / Math.PI) % 360 + 360) % 360);
+      return;
+    }
     if (!dragState) return;
     const dx = event.clientX - dragState.startClientX;
     const dy = event.clientY - dragState.startClientY;
@@ -143,6 +151,7 @@ export default function DocumentFillLayer({
 
   const endDrag = () => {
     setDragState(null);
+    setRotationDrag(null);
   };
 
   const deleteSelected = () => {
@@ -360,6 +369,23 @@ export default function DocumentFillLayer({
               unoptimized
             />
           </div>
+          {selected?.kind === "signature" && !placementMode && (
+            <button type="button" aria-label="Rotate signature freely" title="Drag to rotate freely"
+              style={{ top: signaturePosition.y >= 56 ? -56 : signatureSize.height + 12 }}
+              className="absolute left-1/2 grid h-11 w-11 -translate-x-1/2 touch-none cursor-grab place-items-center rounded-full border border-[color:var(--color-accent)] bg-background text-xl text-foreground shadow"
+              onPointerDown={(event) => {
+                event.preventDefault(); event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId);
+                const rect = event.currentTarget.parentElement!.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+                setRotationDrag({ cx, cy, angle: Math.atan2(event.clientY - cy, event.clientX - cx), rotation: signatureRotation });
+              }}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => {
+                if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+                event.preventDefault(); event.stopPropagation();
+                onSignatureRotationChange(((signatureRotation + (event.key === "ArrowLeft" ? -1 : 1) * (event.shiftKey ? 10 : 1)) % 360 + 360) % 360);
+              }}>↻</button>
+          )}
           {selected?.kind === "signature" && !placementMode && (
             <div
               aria-label="Resize signature"

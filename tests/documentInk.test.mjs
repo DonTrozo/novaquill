@@ -69,3 +69,16 @@ test('rotation that cannot fit on the page preserves the original signature', as
   const strokes = [{ groupId: 'wide', page: 1, points: [{ x: 10, y: 40 }, { x: 500, y: 40 }], width: 4, color: '#000000', viewport: { width: 600, height: 100 } }];
   assert.equal(rotateInkGroup(strokes, 'wide', 1, 90, { width: 600, height: 100 }), strokes);
 });
+
+test('manual rotation accepts precise fractional angles without snapping to preset steps', async () => {
+  const { rotateInkGroup } = await import('../src/lib/documentInk.ts');
+  const strokes = [{ groupId: 'free', page: 1, points: [{ x: 200, y: 300 }, { x: 300, y: 300 }], width: 2, color: '#000000', viewport: { width: 600, height: 800 } }];
+  for (const angle of [0.25, 7.35, -22.8, 179.9, -179.9]) {
+    const rotated = rotateInkGroup(strokes, 'free', 1, angle, { width: 600, height: 800 });
+    const [start, end] = rotated[0].points;
+    const actualAngle = Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI;
+    assert.ok(Math.abs(actualAngle - angle) < 1e-8);
+    assert.ok(Math.abs(Math.hypot(end.x - start.x, end.y - start.y) - 100) < 1e-8);
+    assert.equal(rotated[0].width, 2);
+  }
+});

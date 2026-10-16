@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "@/context/LanguageContext";
+
 import SigningAllowanceNotice from "@/components/SigningAllowanceNotice";
 
 import { useUpload } from "@/context/UploadContext";
@@ -25,6 +27,7 @@ function formatFileSize(bytes: number): string {
 }
 
 export default function DashboardPage() {
+  const { t, locale } = useLanguage();
   const { status } = useSession();
   const router = useRouter();
   const { file, setFile } = useUpload();
@@ -83,7 +86,7 @@ export default function DashboardPage() {
         throw new Error("Please upload a PDF document.");
       }
       if (selectedFile.size > MAX_FILE_SIZE) {
-        throw new Error(`Document size must be under ${MAX_FILE_SIZE / (1024 * 1024)}MB.`);
+        throw new Error(t("File size must be less than {size}MB.", { size: MAX_FILE_SIZE / (1024 * 1024) }));
       }
       const isValidPdf = await validatePdfHeader(selectedFile);
       if (!isValidPdf) {
@@ -129,8 +132,8 @@ export default function DashboardPage() {
   if (status === "loading") {
     return (
       <div className="max-w-5xl mx-auto px-6 py-12">
-        <h1 className="text-2xl font-semibold mb-4">Signing Dashboard</h1>
-        <div className="text-sm text-foreground/60">Loading…</div>
+        <h1 className="text-2xl font-semibold mb-4">{t("Signing Dashboard")}</h1>
+        <div className="text-sm text-foreground/60">{t("Loading…")}</div>
       </div>
     );
   }
@@ -141,22 +144,16 @@ export default function DashboardPage() {
       <section className="rounded-2xl border border-foreground/15 p-6 md:p-8 bg-gradient-to-b from-[color:var(--color-accent)]/10 via-background to-background">
         <div className="grid lg:grid-cols-[1.1fr_1fr] gap-6 items-start">
           <div className="space-y-5">
-            <p className="inline-flex items-center rounded-full border border-[color:var(--color-accent)]/30 bg-[color:var(--color-accent)]/10 px-3 py-1 text-xs font-medium">
-              NovaQuill dashboard
-            </p>
-            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
-              Upload document to sign
-            </h1>
-            <p className="text-foreground/75 max-w-xl">
-              Upload a PDF, sign directly on the document, preview it and download. You can also use a saved, typed or uploaded signature.
-            </p>
+            <p className="inline-flex items-center rounded-full border border-[color:var(--color-accent)]/30 bg-[color:var(--color-accent)]/10 px-3 py-1 text-xs font-medium">{t("NovaQuill dashboard")}</p>
+            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">{t("Upload document to sign")}</h1>
+            <p className="text-foreground/75 max-w-xl">{t("Upload a PDF, sign directly on the document, preview it and download. You can also use a saved, typed or uploaded signature.")}</p>
             <ol className="grid gap-2 text-sm text-foreground/80">
-              <li><span className="font-medium">1.</span> Upload a file to sign</li>
-              <li><span className="font-medium">2.</span> Sign directly where your signature belongs</li>
-              <li><span className="font-medium">3.</span> Undo or redo a stroke if needed</li>
-              <li><span className="font-medium">4.</span> Review the completed PDF</li>
-              <li><span className="font-medium">5.</span> Optionally save your handwriting for next time</li>
-              <li><span className="font-medium">6.</span> Download the signed PDF</li>
+              <li><span className="font-medium">1.</span>{" "}{t("Upload a file to sign")}</li>
+              <li><span className="font-medium">2.</span>{" "}{t("Sign directly where your signature belongs")}</li>
+              <li><span className="font-medium">3.</span>{" "}{t("Undo or redo a stroke if needed")}</li>
+              <li><span className="font-medium">4.</span>{" "}{t("Review the completed PDF")}</li>
+              <li><span className="font-medium">5.</span>{" "}{t("Optionally save your handwriting for next time")}</li>
+              <li><span className="font-medium">6.</span>{" "}{t("Download the signed PDF")}</li>
             </ol>
           </div>
 
@@ -174,10 +171,9 @@ export default function DashboardPage() {
             >
               <p className="text-3xl mb-3" aria-hidden="true">✍️</p>
               <p className="text-lg font-medium">
-                {dragActive ? "Drop your PDF here" : "Start signing a document"}
+                {dragActive ? t("Drop your PDF here") : t("Start signing a document")}
               </p>
-              <p className="text-sm text-foreground/65 mt-1 mb-4">
-                PDF only, up to {MAX_FILE_SIZE / (1024 * 1024)}MB
+              <p className="text-sm text-foreground/65 mt-1 mb-4">{t("PDF only, up to")}{" "}{MAX_FILE_SIZE / (1024 * 1024)}MB
               </p>
               <input
                 id="dashboard-upload"
@@ -191,20 +187,20 @@ export default function DashboardPage() {
                 htmlFor="dashboard-upload"
                 className="inline-flex items-center rounded-md px-5 py-3 bg-[color:var(--color-accent)] text-white font-medium hover:opacity-90 transition cursor-pointer"
               >
-                {isUploadProcessing ? "Processing..." : "Upload document to sign"}
+                {isUploadProcessing ? t("Processing...") : t("Upload document to sign")}
               </label>
             </div>
 
             {uploadError && (
               <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                {uploadError}
+                {t(uploadError)}
               </div>
             )}
 
             {file && (
               <div className="mt-4 rounded-lg border border-foreground/15 bg-foreground/[0.02] p-3 text-sm">
                 <p className="font-medium truncate">{file.name}</p>
-                <p className="text-foreground/70">Ready to sign • {formatFileSize(file.size)}</p>
+                <p className="text-foreground/70">{t("Ready to sign •")}{" "}{formatFileSize(file.size)}</p>
               </div>
             )}
           </div>
@@ -212,45 +208,43 @@ export default function DashboardPage() {
       </section>
 
       <section className="rounded-xl border border-foreground/15 p-5">
-        <h2 className="text-lg font-semibold mb-4">Account overview</h2>
+        <h2 className="text-lg font-semibold mb-4">{t("Account overview")}</h2>
         <div className="grid gap-4 sm:grid-cols-3 mb-4">
           <div className="rounded-lg border border-foreground/15 p-4">
-            <div className="text-xs uppercase tracking-wide text-foreground/60">Usage</div>
+            <div className="text-xs uppercase tracking-wide text-foreground/60">{t("Usage")}</div>
             <div className="text-xl font-semibold mt-1">
-              {sub === "PRO" ? `${used} documents · Unlimited signing` : `${used} / ${state?.limit ?? 3} documents this month`}
+              {sub === "PRO" ? t("{used} documents · Unlimited signing", { used }) : t("{used} / {limit} documents this month", { used, limit: state?.limit ?? 3 })}
             </div>
           </div>
           <div className="rounded-lg border border-foreground/15 p-4">
-            <div className="text-xs uppercase tracking-wide text-foreground/60">Subscription</div>
-            <div className="text-xl font-semibold mt-1">{sub}</div>
+            <div className="text-xs uppercase tracking-wide text-foreground/60">{t("Subscription")}</div>
+            <div className="text-xl font-semibold mt-1">{t(sub)}</div>
           </div>
           <div className="rounded-lg border border-foreground/15 p-4">
-            <div className="text-xs uppercase tracking-wide text-foreground/60">Analytics events</div>
+            <div className="text-xs uppercase tracking-wide text-foreground/60">{t("Analytics events")}</div>
             <div className="text-xl font-semibold mt-1">{analytics.reduce((sum, item) => sum + item.count, 0)}</div>
           </div>
         </div>
 
         <div className="rounded-lg border border-foreground/15 p-4">
-          <div className="text-sm text-foreground/60 mb-2">Recent signed documents</div>
+          <div className="text-sm text-foreground/60 mb-2">{t("Recent signed documents")}</div>
           <div className="grid gap-2">
-            {docs.length === 0 && <div className="text-sm text-foreground/60">No documents yet.</div>}
+            {docs.length === 0 && <div className="text-sm text-foreground/60">{t("No documents yet.")}</div>}
             {docs.map((d) => (
               <div key={d.id} className="flex items-center justify-between border border-foreground/10 rounded-md px-3 py-2">
                 <div className="min-w-0">
                   <div className="text-sm truncate">{d.filename}</div>
-                  <div className="text-xs text-foreground/60">{new Date(d.createdAt).toLocaleString()}</div>
+                  <div className="text-xs text-foreground/60">{new Date(d.createdAt).toLocaleString(locale)}</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <a href={`/api/documents/${d.id}`} className="rounded-md border px-2 py-1 text-sm">Download</a>
+                  <a href={`/api/documents/${d.id}`} className="rounded-md border px-2 py-1 text-sm">{t("Download")}</a>
                   <button
                     className="rounded-md border px-2 py-1 text-sm"
                     onClick={async () => {
                       await fetch(`/api/documents/${d.id}`, { method: "DELETE" });
                       setDocs((prev) => prev.filter((x) => x.id !== d.id));
                     }}
-                  >
-                    Delete
-                  </button>
+                  >{t("Delete")}</button>
                 </div>
               </div>
             ))}
@@ -258,11 +252,11 @@ export default function DashboardPage() {
         </div>
 
         <details className="mt-4 rounded-lg border border-foreground/15 p-4">
-          <summary className="cursor-pointer font-medium">Advanced account controls</summary>
+          <summary className="cursor-pointer font-medium">{t("Advanced account controls")}</summary>
           <div className="mt-3 space-y-4">
             <div className="grid gap-2">
-              <div className="text-sm text-foreground/60">Analytics (aggregate)</div>
-              {analytics.length === 0 && <div className="text-sm text-foreground/60">No events yet.</div>}
+              <div className="text-sm text-foreground/60">{t("Analytics (aggregate)")}</div>
+              {analytics.length === 0 && <div className="text-sm text-foreground/60">{t("No events yet.")}</div>}
               {analytics.map((a) => (
                 <div key={a.name} className="flex items-center justify-between border border-foreground/10 rounded-md px-3 py-2 text-sm">
                   <div>{a.name}</div>
@@ -272,22 +266,21 @@ export default function DashboardPage() {
             </div>
 
             <div>
-              <div className="text-sm text-foreground/60 mb-2">Data control</div>
+              <div className="text-sm text-foreground/60 mb-2">{t("Data control")}</div>
               <div className="flex items-center gap-2">
-                <a href="/api/dsar/export" className="rounded-md border px-3 py-2 text-sm">Export account</a>
+                <a href="/api/dsar/export" className="rounded-md border px-3 py-2 text-sm">{t("Export account")}</a>
                 <form
                   action="/api/dsar/delete"
                   method="post"
                   onSubmit={(e) => {
-                    if (!confirm("Delete your account and all documents?")) e.preventDefault();
+                    if (!confirm(t("Delete your account and all documents?"))) e.preventDefault();
                   }}
                 >
-                  <button className="rounded-md border px-3 py-2 text-sm text-red-600">Delete account</button>
+                  <button className="rounded-md border px-3 py-2 text-sm text-red-600">{t("Delete account")}</button>
                 </form>
               </div>
-              <div className="text-xs text-foreground/60 mt-2">
-                See also: <a className="underline" href="/privacy">Privacy Policy</a> •{" "}
-                <a className="underline" href="/terms">Terms</a>
+              <div className="text-xs text-foreground/60 mt-2">{t("See also:")}{" "}<a className="underline" href="/privacy">{t("Privacy Policy")}</a> •{" "}
+                <a className="underline" href="/terms">{t("Terms")}</a>
               </div>
             </div>
           </div>

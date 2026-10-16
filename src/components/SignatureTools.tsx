@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "@/context/LanguageContext";
+
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -133,6 +135,7 @@ function trimCanvas(canvas: HTMLCanvasElement, padding = 10): HTMLCanvasElement 
 }
 
 export default function SignatureTools({ onSignature, drawingEnabled = true }: { onSignature: (dataUrl: string) => void; drawingEnabled?: boolean }) {
+  const { t } = useLanguage();
   const { status } = useSession();
   const isSignedIn = status === "authenticated";
   const [color, setColor] = useState("#111111");
@@ -435,13 +438,13 @@ export default function SignatureTools({ onSignature, drawingEnabled = true }: {
     <div className="grid gap-4">
       {isSignedIn && <div className="rounded-lg border border-foreground/15 p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Saved signatures</h3>
-          <span className="text-xs text-foreground/60">{savedSignatures.length} saved</span>
+          <h3 className="text-sm font-semibold">{t("Saved signatures")}</h3>
+          <span className="text-xs text-foreground/60">{savedSignatures.length}{" "}{t("saved")}</span>
         </div>
         {isLoadingSaved ? (
-          <p className="text-xs text-foreground/65">Loading saved signatures...</p>
+          <p className="text-xs text-foreground/65">{t("Loading saved signatures...")}</p>
         ) : savedSignatures.length === 0 ? (
-          <p className="text-xs text-foreground/65">Save a signature once and reuse it instantly in future documents.</p>
+          <p className="text-xs text-foreground/65">{t("Save a signature once and reuse it instantly in future documents.")}</p>
         ) : (
           <div className="grid gap-2 max-h-44 overflow-auto pr-1">
             {savedSignatures.map((signature) => (
@@ -449,19 +452,17 @@ export default function SignatureTools({ onSignature, drawingEnabled = true }: {
                 <button
                   onClick={() => void applySignature(signature.dataUrl, false)}
                   className="flex items-center gap-2 min-w-0 text-left hover:opacity-90"
-                  aria-label={`Use saved signature ${signature.name}`}
+                  aria-label={t("Use saved signature {name}", { name: signature.name })}
                 >
                   <div className="h-10 w-24 rounded bg-white border border-foreground/10 flex items-center justify-center overflow-hidden">
                     <Image src={signature.dataUrl} alt={signature.name} width={96} height={40} className="max-h-full max-w-full object-contain" unoptimized />
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-medium truncate">{signature.name}</p>
-                    <p className="text-[11px] text-foreground/60">Tap to use</p>
+                    <p className="text-[11px] text-foreground/60">{t("Tap to use")}</p>
                   </div>
                 </button>
-                <button onClick={() => removeSavedSignature(signature.id)} className="text-xs rounded-md border px-2 py-1 hover:bg-foreground/5" aria-label={`Remove saved signature ${signature.name}`}>
-                  Remove
-                </button>
+                <button onClick={() => removeSavedSignature(signature.id)} className="text-xs rounded-md border px-2 py-1 hover:bg-foreground/5" aria-label={t("Remove saved signature {name}", { name: signature.name })}>{t("Remove")}</button>
               </div>
             ))}
           </div>
@@ -469,29 +470,20 @@ export default function SignatureTools({ onSignature, drawingEnabled = true }: {
       </div>}
 
       <div className="flex gap-2 flex-wrap">
-        {drawingEnabled && <button onClick={() => setMode("draw")} className={`px-3 py-1 rounded-md border transition-colors ${mode === "draw" ? "bg-foreground/5 border-foreground/30" : "hover:bg-foreground/5"}`} aria-label="Draw signature">
-          Draw
-        </button>}
-        <button onClick={() => setMode("type")} className={`px-3 py-1 rounded-md border transition-colors ${mode === "type" ? "bg-foreground/5 border-foreground/30" : "hover:bg-foreground/5"}`} aria-label="Type signature">
-          Type
-        </button>
-        <button onClick={() => setMode("upload")} className={`px-3 py-1 rounded-md border transition-colors ${mode === "upload" ? "bg-foreground/5 border-foreground/30" : "hover:bg-foreground/5"}`} aria-label="Upload signature image">
-          Upload
-        </button>
+        {drawingEnabled && <button onClick={() => setMode("draw")} className={`px-3 py-1 rounded-md border transition-colors ${mode === "draw" ? "bg-foreground/5 border-foreground/30" : "hover:bg-foreground/5"}`} aria-label={t("Draw signature")}>{t("Draw")}</button>}
+        <button onClick={() => setMode("type")} className={`px-3 py-1 rounded-md border transition-colors ${mode === "type" ? "bg-foreground/5 border-foreground/30" : "hover:bg-foreground/5"}`} aria-label={t("Type signature")}>{t("Type")}</button>
+        <button onClick={() => setMode("upload")} className={`px-3 py-1 rounded-md border transition-colors ${mode === "upload" ? "bg-foreground/5 border-foreground/30" : "hover:bg-foreground/5"}`} aria-label={t("Upload signature image")}>{t("Upload")}</button>
       </div>
 
       {mode !== "upload" && (
         <div className="grid gap-3 rounded-lg border border-foreground/15 p-3">
-          <label className="flex items-center justify-between text-sm">
-            Signature colour
-            <input type="color" value={color} onChange={(event) => setColor(event.target.value)} aria-label="Signature colour" />
+          <label className="flex items-center justify-between text-sm">{t("Signature colour")}<input type="color" value={color} onChange={(event) => setColor(event.target.value)} aria-label={t("Signature colour")} />
           </label>
           {mode === "draw" && <>
-            <label className="grid gap-1 text-sm">
-              Pen width: {lineWidth}px
-              <input type="range" min="1" max="6" step="0.5" value={lineWidth} onChange={(event) => setLineWidth(Number(event.target.value))} aria-label="Pen width" />
+            <label className="grid gap-1 text-sm">{t("Pen width:")}{" "}{lineWidth}px
+              <input type="range" min="1" max="6" step="0.5" value={lineWidth} onChange={(event) => setLineWidth(Number(event.target.value))} aria-label={t("Pen width")} />
             </label>
-            <p className="text-sm text-foreground/70">ShapeAssist is automatic</p>
+            <p className="text-sm text-foreground/70">{t("ShapeAssist is automatic")}</p>
           </>}
         </div>
       )}
@@ -499,17 +491,11 @@ export default function SignatureTools({ onSignature, drawingEnabled = true }: {
       {mode === "draw" && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Draw your signature</span>
+            <span className="text-sm font-medium">{t("Draw your signature")}</span>
             <div className="flex items-center gap-2">
-              <button onClick={undoStroke} disabled={strokeCount === 0 || drawingRef.current} className="text-xs rounded-md border px-2 py-1 hover:bg-foreground/5 disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Undo last stroke">
-                Undo
-              </button>
-              <button onClick={redoStroke} disabled={redoStrokeCount === 0 || drawingRef.current} className="text-xs rounded-md border px-2 py-1 hover:bg-foreground/5 disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Redo last undone stroke">
-                Redo
-              </button>
-              <button onClick={clearCanvas} className="text-sm text-foreground/70 hover:text-foreground hover:underline" aria-label="Clear canvas">
-                Clear
-              </button>
+              <button onClick={undoStroke} disabled={strokeCount === 0 || drawingRef.current} className="text-xs rounded-md border px-2 py-1 hover:bg-foreground/5 disabled:opacity-50 disabled:cursor-not-allowed" aria-label={t("Undo last stroke")}>{t("Undo")}</button>
+              <button onClick={redoStroke} disabled={redoStrokeCount === 0 || drawingRef.current} className="text-xs rounded-md border px-2 py-1 hover:bg-foreground/5 disabled:opacity-50 disabled:cursor-not-allowed" aria-label={t("Redo last undone stroke")}>{t("Redo")}</button>
+              <button onClick={clearCanvas} className="text-sm text-foreground/70 hover:text-foreground hover:underline" aria-label={t("Clear canvas")}>{t("Clear")}</button>
             </div>
           </div>
           <div className="border rounded-md w-full">
@@ -524,26 +510,26 @@ export default function SignatureTools({ onSignature, drawingEnabled = true }: {
                       onPointerCancel={handleEnd}
               style={{ touchAction: "none" }}
               role="img"
-              aria-label="Signature drawing canvas"
+              aria-label={t("Signature drawing canvas")}
             />
           </div>
-          <p className="text-xs text-foreground/60">ShapeAssist automatically smooths each stroke when you lift your pen.</p>
+          <p className="text-xs text-foreground/60">{t("ShapeAssist automatically smooths each stroke when you lift your pen.")}</p>
         </div>
       )}
 
       {mode === "type" && (
         <div className="grid gap-3">
           <div>
-            <label htmlFor="signature-text" className="block text-sm font-medium mb-2">Type your signature</label>
-            <input id="signature-text" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Enter your name or signature" className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent" />
+            <label htmlFor="signature-text" className="block text-sm font-medium mb-2">{t("Type your signature")}</label>
+            <input id="signature-text" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={t("Enter your name or signature")} className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent" />
           </div>
           <div>
-            <label htmlFor="signature-font" className="block text-sm font-medium mb-2">Font style</label>
+            <label htmlFor="signature-font" className="block text-sm font-medium mb-2">{t("Font style")}</label>
             <select id="signature-font" value={font} onChange={(e) => setFont(e.target.value)} className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent">
-              <option value="cursive">Cursive</option>
-              <option value="serif">Serif</option>
-              <option value="sans-serif">Sans</option>
-              <option value="monospace">Mono</option>
+              <option value="cursive">{t("Cursive")}</option>
+              <option value="serif">{t("Serif")}</option>
+              <option value="sans-serif">{t("Sans")}</option>
+              <option value="monospace">{t("Mono")}</option>
             </select>
           </div>
         </div>
@@ -551,14 +537,14 @@ export default function SignatureTools({ onSignature, drawingEnabled = true }: {
 
       {mode === "upload" && (
         <div className="space-y-3">
-          <label htmlFor="signature-upload" className="block text-sm font-medium">Upload signature image</label>
+          <label htmlFor="signature-upload" className="block text-sm font-medium">{t("Upload signature image")}</label>
           <input id="signature-upload" type="file" accept="image/*" onChange={handleFileUpload} className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent" />
-          <p className="text-xs text-foreground/70">Supported formats: JPG, PNG, GIF. Max size: 5MB. Choose the image, then click the document to place it. Its original colours are preserved.</p>
+          <p className="text-xs text-foreground/70">{t("Supported formats: JPG, PNG, GIF. Max size: 5MB. Choose the image, then click the document to place it. Its original colours are preserved.")}</p>
           {uploadedDataUrl && (
             <div className="rounded-md border border-foreground/15 p-2">
-              <p className="text-xs text-foreground/70 mb-2">Preview</p>
+              <p className="text-xs text-foreground/70 mb-2">{t("Preview")}</p>
               <div className="h-14 bg-white rounded border border-foreground/10 flex items-center justify-center">
-                <Image src={uploadedDataUrl} alt="Uploaded signature preview" width={220} height={56} className="max-h-full max-w-full object-contain" unoptimized />
+                <Image src={uploadedDataUrl} alt={t("Uploaded signature preview")} width={220} height={56} className="max-h-full max-w-full object-contain" unoptimized />
               </div>
             </div>
           )}
@@ -566,11 +552,11 @@ export default function SignatureTools({ onSignature, drawingEnabled = true }: {
       )}
 
       {isSignedIn && <div className="rounded-lg border border-foreground/15 p-3 space-y-3">
-        <label htmlFor="signature-name" className="block text-xs font-medium">Save name (optional)</label>
-        <input id="signature-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Personal signature" className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent" />
+        <label htmlFor="signature-name" className="block text-xs font-medium">{t("Save name (optional)")}</label>
+        <input id="signature-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("e.g. Personal signature")} className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent" />
         <label className="flex items-center justify-between text-sm">
-          <span>Save this signature for future use</span>
-          <input type="checkbox" checked={saveForFuture} onChange={(e) => setSaveForFuture(e.target.checked)} aria-label="Save signature for future use" />
+          <span>{t("Save this signature for future use")}</span>
+          <input type="checkbox" checked={saveForFuture} onChange={(e) => setSaveForFuture(e.target.checked)} aria-label={t("Save signature for future use")} />
         </label>
       </div>}
 
@@ -578,14 +564,14 @@ export default function SignatureTools({ onSignature, drawingEnabled = true }: {
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
           <div className="flex items-center gap-2 text-red-700 text-sm">
             <span>⚠️</span>
-            <span>{error}</span>
+            <span>{t(error)}</span>
           </div>
         </div>
       )}
 
       <div>
-        <button onClick={toDataUrl} disabled={isProcessing || (mode === "type" && !typed.trim())} className="w-full rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity" aria-label="Use this signature">
-          {isProcessing ? "Processing..." : mode === "upload" && uploadedDataUrl ? "Place Uploaded Signature Again" : "Use Signature on Document"}
+        <button onClick={toDataUrl} disabled={isProcessing || (mode === "type" && !typed.trim())} className="w-full rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity" aria-label={t("Use this signature")}>
+          {isProcessing ? t("Processing...") : mode === "upload" && uploadedDataUrl ? t("Place Uploaded Signature Again") : t("Use Signature on Document")}
         </button>
       </div>
     </div>

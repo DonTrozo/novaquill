@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "@/context/LanguageContext";
+
 import { signIn, useSession } from "next-auth/react";
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -18,6 +20,7 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
 };
 
 function LoginForm() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -47,20 +50,20 @@ function LoginForm() {
   }
 
   if (status === "authenticated") {
-    return <div>Redirecting...</div>;
+    return <div>{t("Redirecting...")}</div>;
   }
 
   const oauthErrorMessage = oauthError ? OAUTH_ERROR_MESSAGES[oauthError] || "Google sign-in failed. Try again." : null;
 
   return (
     <div className="max-w-sm mx-auto px-6 py-12">
-      <h1 className="text-2xl font-semibold mb-6">{callbackUrl === "/sign" ? "Sign in to download" : "Log in"}</h1>
-      {callbackUrl === "/sign" && <p className="mb-4 text-sm text-foreground/70">Your completed document is saved in this browser and will be ready after sign-in.</p>}
+      <h1 className="text-2xl font-semibold mb-6">{callbackUrl === "/sign" ? t("Sign in to download") : t("Log in")}</h1>
+      {callbackUrl === "/sign" && <p className="mb-4 text-sm text-foreground/70">{t("Your completed document is saved in this browser and will be ready after sign-in.")}</p>}
       <form onSubmit={onSubmit} className="grid gap-4">
         <input
           type="email"
           autoComplete="email"
-          placeholder="Email"
+          placeholder={t("Email")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="rounded-md border border-foreground/20 px-3 py-2"
@@ -69,32 +72,32 @@ function LoginForm() {
         <input
           type="password"
           autoComplete="current-password"
-          placeholder="Password"
+          placeholder={t("Password")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="rounded-md border border-foreground/20 px-3 py-2"
           required
         />
-        {error && <div className="text-sm text-red-600">{error}</div>}
-        <button className="rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white">Log in</button>
+        {error && <div className="text-sm text-red-600">{t(error)}</div>}
+        <button className="rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white">{t("Log in")}</button>
       </form>
       <div className="mt-4 grid gap-2">
-        {oauthErrorMessage && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{oauthErrorMessage}</div>}
-        <button onClick={() => signIn("google", { callbackUrl })} className="rounded-md px-4 py-2 border border-foreground/20">Continue with Google</button>
-        <button onClick={() => signIn("apple", { callbackUrl })} className="rounded-md px-4 py-2 border border-foreground/20">Continue with Apple</button>
+        {oauthErrorMessage && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{t(oauthErrorMessage)}</div>}
+        <button onClick={() => signIn("google", { callbackUrl })} className="rounded-md px-4 py-2 border border-foreground/20">{t("Continue with Google")}</button>
+        <button onClick={() => signIn("apple", { callbackUrl })} className="rounded-md px-4 py-2 border border-foreground/20">{t("Continue with Apple")}</button>
       </div>
-      <div className="mt-4 text-sm">
-        No account? <a className="underline" href={`/register?next=${encodeURIComponent(callbackUrl)}`}>Register</a>
+      <div className="mt-4 text-sm">{t("No account?")}{" "}<a className="underline" href={`/register?next=${encodeURIComponent(callbackUrl)}`}>{t("Register")}</a>
       </div>
     </div>
   );
 }
 
 export default function LoginPage() {
+  const { t } = useLanguage();
   return (
     <Suspense fallback={
       <div className="max-w-sm mx-auto px-6 py-12">
-        <h1 className="text-2xl font-semibold mb-6">Log in</h1>
+        <h1 className="text-2xl font-semibold mb-6">{t("Log in")}</h1>
         <div className="animate-pulse space-y-4">
           <div className="h-10 bg-foreground/10 rounded-md"></div>
           <div className="h-10 bg-foreground/10 rounded-md"></div>

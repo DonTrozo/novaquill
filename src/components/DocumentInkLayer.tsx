@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "@/context/LanguageContext";
+
 import { useCallback, useEffect, useRef, type PointerEvent } from "react";
 import { inkBounds, inkPath, smoothInk, type InkPoint, type InkStroke } from "@/lib/documentInk";
 
@@ -37,6 +39,7 @@ export default function DocumentInkLayer({ size, scale, page, enabled, strokes, 
   onStroke: (stroke: InkStroke) => void;
   onDrawingChange: (drawing: boolean) => void;
 }) {
+  const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const draftRef = useRef<InkStroke | null>(null);
   const pointerRef = useRef<number | null>(null);
@@ -100,7 +103,7 @@ export default function DocumentInkLayer({ size, scale, page, enabled, strokes, 
     onStroke(stroke); onDrawingChange(false); paint();
   };
 
-  return <canvas ref={canvasRef} aria-label={enabled ? "Draw your signature directly on this PDF page" : "Signature ink on PDF page"} role="img"
+  return <canvas ref={canvasRef} aria-label={enabled ? t("Draw your signature directly on this PDF page") : t("Signature ink on PDF page")} role="img"
     className={`absolute left-0 top-0 ${enabled ? "z-30 cursor-crosshair touch-none" : "pointer-events-none z-20"}`}
     style={{ width: size.width, height: size.height }}
     onPointerDown={start} onPointerMove={move} onPointerUp={finish} onPointerCancel={finish} />;

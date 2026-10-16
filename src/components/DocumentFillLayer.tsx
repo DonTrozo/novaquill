@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "@/context/LanguageContext";
+
 import Image from "next/image";
 import type { DetectedField } from "@/lib/pdfFields";
 import { type MouseEvent, type PointerEvent, useState } from "react";
@@ -84,6 +86,7 @@ export default function DocumentFillLayer({
   detectedFields?: DetectedField[];
   onFieldPlaced?: (field: DetectedField) => void;
 }) {
+  const { t } = useLanguage();
   const [selected, setSelected] = useState<Selected>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [rotationDrag, setRotationDrag] = useState<{ cx: number; cy: number; angle: number; rotation: number } | null>(null);
@@ -189,12 +192,10 @@ export default function DocumentFillLayer({
       onPointerCancel={endDrag}
       onClick={handleCanvasClick}
     >
-      {activeTool === "text" && detectedFields.filter((field) => !textElements.some((item) => item.id === `field-${page}-${field.id}`)).map((field) => <button key={field.id} type="button" aria-label={`Fill ${field.label}`} className="absolute z-10 rounded border-2 border-dashed border-[color:var(--color-accent)] bg-cyan-500/10 text-left" style={{ left: field.x, top: field.y, width: field.width, height: field.height }}
+      {activeTool === "text" && detectedFields.filter((field) => !textElements.some((item) => item.id === `field-${page}-${field.id}`)).map((field) => <button key={field.id} type="button" aria-label={t("Fill {label}", { label: field.label })} className="absolute z-10 rounded border-2 border-dashed border-[color:var(--color-accent)] bg-cyan-500/10 text-left" style={{ left: field.x, top: field.y, width: field.width, height: field.height }}
         onClick={(event) => { event.stopPropagation(); onFieldPlaced?.(field); }} />)}
       {placementMode && (
-        <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-full border border-foreground/10 bg-background/90 px-3 py-1 text-xs shadow">
-          Click where you want to place it
-        </div>
+        <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-full border border-foreground/10 bg-background/90 px-3 py-1 text-xs shadow">{t("Click where you want to place it")}</div>
       )}
 
       {selected && !placementMode && (
@@ -206,7 +207,7 @@ export default function DocumentFillLayer({
             deleteSelected();
           }}
         >
-          {selected.kind === "signature" ? "Delete signature" : "Delete text"}
+          {selected.kind === "signature" ? t("Delete signature") : t("Delete text")}
         </button>
       )}
 
@@ -243,11 +244,11 @@ export default function DocumentFillLayer({
               <input
                 value={item.text}
                 autoFocus={item.text.length === 0}
-                aria-label={`Document text on page ${item.page}`}
+                aria-label={t("Document text on page {page}", { page: item.page })}
                 onChange={(event) => updateText(item.id, { text: event.target.value })}
                 onPointerDown={(event) => { event.stopPropagation(); setSelected({ kind: "text", id: item.id }); }}
                 onFocus={() => setSelected({ kind: "text", id: item.id })}
-                placeholder="Enter text"
+                placeholder={t("Enter text")}
                 className="h-full w-full bg-transparent px-2 text-black placeholder:text-gray-600 outline-none"
                 style={{ fontSize: item.fontSize, color: "#000000", WebkitTextFillColor: "#000000", colorScheme: "light" }}
               />
@@ -261,7 +262,7 @@ export default function DocumentFillLayer({
               >
                 <button
                   type="button"
-                  aria-label="Move text"
+                  aria-label={t("Move text")}
                   className="min-h-10 cursor-move touch-none rounded border border-gray-400 bg-white px-3 text-black"
                   onPointerDown={(event) => beginDrag(event, {
                     target: "text", id: item.id, kind: "move",
@@ -279,18 +280,14 @@ export default function DocumentFillLayer({
                       y: clamp(item.y + direction[1] * step, 0, Math.max(0, pdfSize.height - item.height)),
                     });
                   }}
-                >
-                  ↔ Move
-                </button>
-                Size
-                <input
+                >{t("↔ Move")}</button>{t("Size")}<input
                   key={`${item.id}-${scale}`}
                   type="number"
                   min="1"
                   max="144"
                   step="0.5"
                   defaultValue={Number((item.fontSize / scale).toFixed(2))}
-                  aria-label="Text font size in points"
+                  aria-label={t("Text font size in points")}
                   className="w-20 rounded border border-gray-400 bg-white px-2 py-1 text-black outline-none focus:border-[color:var(--color-accent)]"
                   style={{ colorScheme: "light" }}
                   onChange={(event) => {
@@ -310,7 +307,7 @@ export default function DocumentFillLayer({
             )}
             {isSelected && !placementMode && !item.fieldName && (
               <div
-                aria-label="Resize text"
+                aria-label={t("Resize text")}
                 className="absolute -bottom-3 -right-3 h-7 w-7 cursor-se-resize touch-none rounded-full border border-[color:var(--color-accent)] bg-background shadow"
                 onPointerDown={(event) =>
                   beginDrag(event, {
@@ -361,7 +358,7 @@ export default function DocumentFillLayer({
           >
             <Image
               src={sigDataUrl}
-              alt="Signature"
+              alt={t("Signature")}
               width={Math.round(signatureSize.width)}
               height={Math.round(signatureSize.height)}
               className="h-full w-full select-none object-contain"
@@ -370,7 +367,7 @@ export default function DocumentFillLayer({
             />
           </div>
           {selected?.kind === "signature" && !placementMode && (
-            <button type="button" aria-label="Rotate signature freely" title="Drag to rotate freely"
+            <button type="button" aria-label={t("Rotate signature freely")} title={t("Drag to rotate freely")}
               style={{ top: signaturePosition.y >= 56 ? -56 : signatureSize.height + 12 }}
               className="absolute left-1/2 grid h-11 w-11 -translate-x-1/2 touch-none cursor-grab place-items-center rounded-full border border-[color:var(--color-accent)] bg-background text-xl text-foreground shadow"
               onPointerDown={(event) => {
@@ -388,7 +385,7 @@ export default function DocumentFillLayer({
           )}
           {selected?.kind === "signature" && !placementMode && (
             <div
-              aria-label="Resize signature"
+              aria-label={t("Resize signature")}
               className="absolute -bottom-4 -right-4 h-9 w-9 cursor-se-resize touch-none rounded-full border border-[color:var(--color-accent)] bg-background shadow"
               onPointerDown={(event) =>
                 beginDrag(event, {

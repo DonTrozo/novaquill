@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "@/context/LanguageContext";
+
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -28,15 +30,16 @@ export function useSigningUsage() {
 }
 
 export function SigningUsageNotice({ state, compact = false }: { state: ReturnType<typeof useSigningUsage>; compact?: boolean }) {
+  const { t } = useLanguage();
   const { usage, error, checking, refresh, status } = state;
   if (status !== "authenticated") return null;
   const remaining = usage?.limit == null ? null : Math.max(0, usage.limit - usage.used);
   return <div className={compact ? "text-xs text-foreground/60" : "rounded-md border border-foreground/15 p-3 text-sm"} role="status">
-    {checking ? "Checking your document allowance…" : error ? <>
-      {error} <button type="button" onClick={() => void refresh()} className="underline">Retry</button>
-    </> : usage?.subscription === "PRO" ? "Pro · Unlimited signing" : <>
-      {remaining} of {usage?.limit} free documents remaining this month.{!compact && " Previews do not use credits."} {" "}
-      {(!compact || remaining === 0) && <Link href="/pricing" className="font-medium underline">Upgrade to Pro</Link>}
+    {checking ? t("Checking your document allowance…") : error ? <>
+      {t(error)} <button type="button" onClick={() => void refresh()} className="underline">{t("Retry")}</button>
+    </> : usage?.subscription === "PRO" ? t("Pro · Unlimited signing") : <>
+      {t("{remaining} of {limit} free documents remaining this month.", { remaining: remaining ?? 0, limit: usage?.limit ?? 3 })}{!compact && t(" Previews do not use credits.")} {" "}
+      {(!compact || remaining === 0) && <Link href="/pricing" className="font-medium underline">{t("Upgrade to Pro")}</Link>}
     </>}
   </div>;
 }

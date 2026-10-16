@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "@/context/LanguageContext";
+
 import { SigningUsageNotice, useSigningUsage } from "@/components/SigningAllowanceNotice";
 
 import Link from "next/link";
@@ -44,17 +46,19 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, max));
 }
 
-function todayValue() {
-  return new Intl.DateTimeFormat(undefined, { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+function todayValue(locale: string) {
+  return new Intl.DateTimeFormat(locale, { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
 export default function SignPage() {
+  const { t } = useLanguage();
   const { ready, file } = useUpload();
-  if (!ready) return <p className="mx-auto max-w-5xl p-6">Opening document…</p>;
+  if (!ready) return <p className="mx-auto max-w-5xl p-6">{t("Opening document…")}</p>;
   return <SigningEditor key={file ? `${file.name}-${file.size}-${file.lastModified}` : "empty"} />;
 }
 
 function SigningEditor() {
+  const { t, locale } = useLanguage();
   const { file, draft, preserveDraft } = useUpload();
   const allowanceState = useSigningUsage();
   const { status } = useSession();
@@ -203,7 +207,7 @@ function SigningEditor() {
 
     const config =
       tool === "date"
-        ? { text: todayValue(), width: 130, height: 34, fontSize: 14 }
+        ? { text: todayValue(locale), width: 130, height: 34, fontSize: 14 }
         : tool === "checkbox"
           ? { text: "X", width: 32, height: 32, fontSize: 18 }
           : tool === "initials"
@@ -291,16 +295,12 @@ function SigningEditor() {
     return (
       <div className="mx-auto max-w-3xl px-6 py-12">
         <div className="rounded-lg border border-foreground/15 p-6">
-          <h1 className="text-2xl font-semibold">No PDF selected</h1>
-          <p className="mt-2 text-foreground/70">
-            Upload a PDF first. After selection, NovaQuill will open the editor immediately.
-          </p>
+          <h1 className="text-2xl font-semibold">{t("No PDF selected")}</h1>
+          <p className="mt-2 text-foreground/70">{t("Upload a PDF first. After selection, NovaQuill will open the editor immediately.")}</p>
           <Link
             href="/upload"
             className="mt-5 inline-flex items-center rounded-md bg-[color:var(--color-accent)] px-5 py-3 text-white transition hover:opacity-90"
-          >
-            Upload PDF
-          </Link>
+          >{t("Upload PDF")}</Link>
         </div>
       </div>
     );
@@ -309,7 +309,7 @@ function SigningEditor() {
   return (
     <div className="mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-6">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Sign your PDF</h1>
+        <h1 className="text-xl font-semibold">{t("Sign your PDF")}</h1>
         <SigningUsageNotice state={allowanceState} compact />
       </div>
       <div className="sticky top-0 z-40 mb-3 rounded-lg border border-foreground/15 bg-background p-2 shadow-sm">
@@ -317,62 +317,60 @@ function SigningEditor() {
           <button type="button" disabled={drawing || !pdfReady} aria-pressed={activeTool === "draw"}
             onClick={toggleSigning}
             className={`rounded-md px-4 py-2 text-sm font-medium ${activeTool === "draw" ? "border border-foreground/20" : "bg-[color:var(--color-accent)] text-white"}`}>
-            {activeTool === "draw" ? "Done signing" : "Sign"}
+            {activeTool === "draw" ? t("Done signing") : t("Sign")}
           </button>
-          {activeTool === "draw" && inkStrokes.some((stroke) => stroke.page === page) && <button type="button" onClick={undoInk} disabled={drawing} className="px-2 py-2 text-sm underline">Undo</button>}
+          {activeTool === "draw" && inkStrokes.some((stroke) => stroke.page === page) && <button type="button" onClick={undoInk} disabled={drawing} className="px-2 py-2 text-sm underline">{t("Undo")}</button>}
           <div className="ml-auto flex items-center gap-1">
-            <button type="button" onClick={() => handleScaleChange("decrease")} disabled={drawing} aria-label="Zoom out" className="rounded border px-3 py-2">−</button>
-            <button type="button" onClick={fitWidth} disabled={drawing || !pdfReady} aria-label="Fit page width" title="Fit page width" className="min-w-12 px-1 py-2 text-xs">{Math.round(scale * 100)}%</button>
-            <button type="button" onClick={() => handleScaleChange("increase")} disabled={drawing} aria-label="Zoom in" className="rounded border px-3 py-2">+</button>
+            <button type="button" onClick={() => handleScaleChange("decrease")} disabled={drawing} aria-label={t("Zoom out")} className="rounded border px-3 py-2">−</button>
+            <button type="button" onClick={fitWidth} disabled={drawing || !pdfReady} aria-label={t("Fit page width")} title={t("Fit page width")} className="min-w-12 px-1 py-2 text-xs">{Math.round(scale * 100)}%</button>
+            <button type="button" onClick={() => handleScaleChange("increase")} disabled={drawing} aria-label={t("Zoom in")} className="rounded border px-3 py-2">+</button>
           </div>
         </div>
         {activeTool === "select" && pageInkGroups.length > 0 && <div className="mt-2 flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => rotateDrawnSignature(-ROTATION_STEP)} disabled={!editableInkGroup || drawing || !pdfReady}
-            aria-label="Rotate signature left 15 degrees" className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">↶ Rotate left</button>
+            aria-label={t("Rotate signature left 15 degrees")} className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">{t("↶ Rotate left")}</button>
           <button type="button" onClick={() => rotateDrawnSignature(ROTATION_STEP)} disabled={!editableInkGroup || drawing || !pdfReady}
-            aria-label="Rotate signature right 15 degrees" className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">↷ Rotate right</button>
+            aria-label={t("Rotate signature right 15 degrees")} className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">{t("↷ Rotate right")}</button>
           <button type="button" onClick={deleteDrawnSignature} disabled={!editableInkGroup || drawing}
-            className="min-h-10 rounded-md border border-red-700 bg-background px-3 py-2 text-sm text-red-700 disabled:opacity-50 dark:text-red-400">
-            Delete signature
-          </button>
-          {!editableInkGroup && <span className="text-xs text-foreground/70">Tap a signature to select it first.</span>}
-          {saveInkMessage && <span role="status" className="text-xs text-foreground/70">{saveInkMessage}</span>}
+            className="min-h-10 rounded-md border border-red-700 bg-background px-3 py-2 text-sm text-red-700 disabled:opacity-50 dark:text-red-400">{t("Delete signature")}</button>
+          {!editableInkGroup && <span className="text-xs text-foreground/70">{t("Tap a signature to select it first.")}</span>}
+          {saveInkMessage && <span role="status" className="text-xs text-foreground/70">{t(saveInkMessage)}</span>}
         </div>}
-        <p className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? "Draw your signature. ShapeAssist is automatic. Tap Done signing, then move, resize or freely rotate your signature." : activeTool === "select" ? "Scroll or pinch to find your spot. Tap a signature to select it. Drag ↻ to rotate freely or its corner to resize." : activeTool === "text" ? "Tap a highlighted field to fill it, or tap anywhere to add text." : `Tap the document to add ${TOOL_LABELS[activeTool].toLowerCase()}.`}</p>
+        <p className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? t("Draw your signature. ShapeAssist is automatic. Tap Done signing, then move, resize or freely rotate your signature.") : activeTool === "select" ? t("Scroll or pinch to find your spot. Tap a signature to select it. Drag ↻ to rotate freely or its corner to resize.") : activeTool === "text" ? t("Tap a highlighted field to fill it, or tap anywhere to add text.") : t("Tap the document to add {tool}.", { tool: t(TOOL_LABELS[activeTool]).toLowerCase() })}</p>
       </div>
       <details ref={toolsRef} className="mb-3 rounded-lg border border-foreground/15 px-3 py-2">
-        <summary className="cursor-pointer text-sm">More tools</summary>
+        <summary className="cursor-pointer text-sm">{t("More tools")}</summary>
         <div className="mt-3 space-y-3">
-          <div className="flex flex-wrap gap-2">{(["select", "text", "initials", "date", "checkbox"] as EditorTool[]).map((tool) => <button key={tool} type="button" className={toolButtonClass(tool)} disabled={drawing} onClick={() => { setActiveTool(tool); if (toolsRef.current) toolsRef.current.open = false; }}>{tool === "select" ? "Navigate" : TOOL_LABELS[tool]}</button>)}</div>
-          <details><summary className="cursor-pointer text-sm">Saved, typed or uploaded signature</summary><div className="mt-3"><SignatureTools key={signatureLibraryVersion} onSignature={handleSignature} drawingEnabled={false} /></div></details>
-          <details><summary className="cursor-pointer text-sm">Pen options</summary><div className="mt-3 flex flex-wrap gap-4 text-sm">
-            <label className="flex items-center gap-2">Colour <input type="color" aria-label="Drawing colour" value={inkColor} disabled={drawing} onChange={(e) => setInkColor(e.target.value)} /></label>
-            <label className="flex items-center gap-2">Pen width <input type="range" min="1" max="6" step="0.5" value={inkWidth} disabled={drawing} aria-label="Drawing pen width" onChange={(e) => setInkWidth(Number(e.target.value))} /></label>
+          <div className="flex flex-wrap gap-2">{(["select", "text", "initials", "date", "checkbox"] as EditorTool[]).map((tool) => <button key={tool} type="button" className={toolButtonClass(tool)} disabled={drawing} onClick={() => { setActiveTool(tool); if (toolsRef.current) toolsRef.current.open = false; }}>{tool === "select" ? t("Navigate") : t(TOOL_LABELS[tool])}</button>)}</div>
+          <details><summary className="cursor-pointer text-sm">{t("Saved, typed or uploaded signature")}</summary><div className="mt-3"><SignatureTools key={signatureLibraryVersion} onSignature={handleSignature} drawingEnabled={false} /></div></details>
+          <details><summary className="cursor-pointer text-sm">{t("Pen options")}</summary><div className="mt-3 flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-2">{t("Colour")}{" "}<input type="color" aria-label={t("Drawing colour")} value={inkColor} disabled={drawing} onChange={(e) => setInkColor(e.target.value)} /></label>
+            <label className="flex items-center gap-2">{t("Pen width")}{" "}<input type="range" min="1" max="6" step="0.5" value={inkWidth} disabled={drawing} aria-label={t("Drawing pen width")} onChange={(e) => setInkWidth(Number(e.target.value))} /></label>
           </div></details>
           {inkStrokes.some((stroke) => stroke.page === page) && <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={undoInk} disabled={drawing} className="rounded border px-3 py-2 text-sm">Undo stroke</button>
-            <button type="button" onClick={() => { setInkStrokes((current) => current.filter((stroke) => stroke.page !== page)); setRedoInk([]); }} disabled={drawing} className="rounded border px-3 py-2 text-sm">Delete all drawn signatures on this page</button>
-            <button type="button" onClick={() => void saveDocumentInk()} disabled={savingInk || drawing || !isSignedIn} className="rounded border px-3 py-2 text-sm">{savingInk ? "Saving…" : "Save signature for next time"}</button>
+            <button type="button" onClick={undoInk} disabled={drawing} className="rounded border px-3 py-2 text-sm">{t("Undo stroke")}</button>
+            <button type="button" onClick={() => { setInkStrokes((current) => current.filter((stroke) => stroke.page !== page)); setRedoInk([]); }} disabled={drawing} className="rounded border px-3 py-2 text-sm">{t("Delete all drawn signatures on this page")}</button>
+            <button type="button" onClick={() => void saveDocumentInk()} disabled={savingInk || drawing || !isSignedIn} className="rounded border px-3 py-2 text-sm">{savingInk ? "Saving…" : t("Save signature for next time")}</button>
           </div>}
-          {redoInk.some((stroke) => stroke.page === page) && <button type="button" onClick={redoLastInk} disabled={drawing} className="rounded border px-3 py-2 text-sm">Redo stroke</button>}
-          {saveInkMessage && <p role="status" className="text-sm">{saveInkMessage}</p>}
-          {sigDataUrl && !signaturePlaced && <p className="text-sm">Tap the document to place your chosen signature.</p>}
+          {redoInk.some((stroke) => stroke.page === page) && <button type="button" onClick={redoLastInk} disabled={drawing} className="rounded border px-3 py-2 text-sm">{t("Redo stroke")}</button>}
+          {saveInkMessage && <p role="status" className="text-sm">{t(saveInkMessage)}</p>}
+          {sigDataUrl && !signaturePlaced && <p className="text-sm">{t("Tap the document to place your chosen signature.")}</p>}
           {sigDataUrl && signaturePlaced && <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => rotateSignature(-ROTATION_STEP)} className="rounded border px-3 py-2 text-sm">Rotate left</button>
-            <button type="button" onClick={() => rotateSignature(ROTATION_STEP)} className="rounded border px-3 py-2 text-sm">Rotate right</button>
-            <button type="button" onClick={() => setActiveTool("signature")} className="rounded border px-3 py-2 text-sm">Move signature</button>
-            <button type="button" onClick={clearSignature} className="rounded border border-red-700 px-3 py-2 text-sm text-red-700 dark:text-red-400">Delete signature</button>
+            <button type="button" onClick={() => rotateSignature(-ROTATION_STEP)} className="rounded border px-3 py-2 text-sm">{t("Rotate left")}</button>
+            <button type="button" onClick={() => rotateSignature(ROTATION_STEP)} className="rounded border px-3 py-2 text-sm">{t("Rotate right")}</button>
+            <button type="button" onClick={() => setActiveTool("signature")} className="rounded border px-3 py-2 text-sm">{t("Move signature")}</button>
+            <button type="button" onClick={clearSignature} className="rounded border border-red-700 px-3 py-2 text-sm text-red-700 dark:text-red-400">{t("Delete signature")}</button>
           </div>}
-          {sigDataUrl && signaturePixelWidth > 0 && signaturePixelWidth < signatureSize.width / scale * 2 && <p role="status" className="text-sm">This image may look pixelated. Use a smaller size or a higher-resolution image.</p>}
-          <Link href="/upload" className="inline-block text-sm underline">Choose another PDF</Link>
+          {sigDataUrl && signaturePixelWidth > 0 && signaturePixelWidth < signatureSize.width / scale * 2 && <p role="status" className="text-sm">{t("This image may look pixelated. Use a smaller size or a higher-resolution image.")}</p>}
+          <Link href="/upload" className="inline-block text-sm underline">{t("Choose another PDF")}</Link>
         </div>
       </details>
       {numPages > 1 && <div className="mb-2 flex items-center justify-center gap-4 text-sm">
-        <button type="button" onClick={() => handlePageChange("prev")} disabled={drawing || page <= 1} aria-label="Previous page" className="rounded border px-3 py-1 disabled:opacity-30">‹</button>
-        <span>Page {page} of {numPages}</span>
-        <button type="button" onClick={() => handlePageChange("next")} disabled={drawing || page >= numPages} aria-label="Next page" className="rounded border px-3 py-1 disabled:opacity-30">›</button>
+        <button type="button" onClick={() => handlePageChange("prev")} disabled={drawing || page <= 1} aria-label={t("Previous page")} className="rounded border px-3 py-1 disabled:opacity-30">‹</button>
+        <span>{t("Page")}{" "}{page}{" "}{t("of")}{" "}{numPages}</span>
+        <button type="button" onClick={() => handlePageChange("next")} disabled={drawing || page >= numPages} aria-label={t("Next page")} className="rounded border px-3 py-1 disabled:opacity-30">›</button>
       </div>}
-      <div ref={viewerContainerRef} aria-label="Scrollable PDF document" className={`max-h-[65svh] min-h-64 overflow-auto overscroll-contain rounded-md border p-3 ${activeTool === "select" ? "cursor-grab" : ""}`}
+      <div ref={viewerContainerRef} aria-label={t("Scrollable PDF document")} className={`max-h-[65svh] min-h-64 overflow-auto overscroll-contain rounded-md border p-3 ${activeTool === "select" ? "cursor-grab" : ""}`}
         style={{ touchAction: activeTool === "draw" ? "none" : "pan-x pan-y pinch-zoom" }}
         onPointerDown={(event) => {
           if (activeTool !== "select" || event.pointerType !== "mouse" || event.button !== 0 || !(event.target instanceof HTMLElement) || event.target.dataset.navigationSurface !== "true") return;

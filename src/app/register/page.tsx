@@ -1,11 +1,14 @@
 "use client";
 
+import { useLanguage } from "@/context/LanguageContext";
+
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { track } from "@/lib/track";
 import { authReturnPath } from "@/lib/authReturn";
 
 export default function RegisterPage() {
+  const { t } = useLanguage();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,18 +35,18 @@ export default function RegisterPage() {
 
   return (
     <div className="max-w-sm mx-auto px-6 py-12">
-      <h1 className="text-2xl font-semibold mb-6">Create account</h1>
+      <h1 className="text-2xl font-semibold mb-6">{t("Create account")}</h1>
       <form onSubmit={onSubmit} className="grid gap-4">
         <input
           type="text"
-          placeholder="Name (optional)"
+          placeholder={t("Name (optional)")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="rounded-md border border-foreground/20 px-3 py-2"
         />
         <input
           type="email"
-          placeholder="Email"
+          placeholder={t("Email")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="rounded-md border border-foreground/20 px-3 py-2"
@@ -51,14 +54,14 @@ export default function RegisterPage() {
         />
         <input
           type="password"
-          placeholder="Password"
+          placeholder={t("Password")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="rounded-md border border-foreground/20 px-3 py-2"
           required
         />
-        {error && <div className="text-sm text-red-600">{error}</div>}
-        <button className="rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white">Register</button>
+        {error && <div className="text-sm text-red-600">{t(error)}</div>}
+        <button className="rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white">{t("Register")}</button>
       </form>
     </div>
   );

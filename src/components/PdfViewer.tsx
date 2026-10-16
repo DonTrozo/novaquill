@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "@/context/LanguageContext";
+
 import { useEffect, useRef, useState } from "react";
 import { useUpload } from "@/context/UploadContext";
 import { getDocument, GlobalWorkerOptions, OPS, type PDFDocumentProxy } from "pdfjs-dist";
@@ -16,6 +18,7 @@ function PdfCanvas({ source, page, scale, onSize, onMeta, onFields }: {
   onMeta?: (meta: { numPages: number }) => void;
   onFields?: (fields: DetectedField[]) => void;
 }) {
+  const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const onSizeRef = useRef(onSize);
   const onMetaRef = useRef(onMeta);
@@ -91,11 +94,11 @@ function PdfCanvas({ source, page, scale, onSize, onMeta, onFields }: {
 
   return (
     <div className="relative min-h-[280px] w-full overflow-auto">
-      <canvas ref={canvasRef} className="block max-w-none bg-white" role="img" aria-label={`PDF page ${page}`} />
-      {isLoading && <div className="absolute inset-0 flex items-center justify-center bg-background/70"><LoadingSpinner text="Loading PDF..." /></div>}
+      <canvas ref={canvasRef} className="block max-w-none bg-white" role="img" aria-label={t("PDF page {page}", { page })} />
+      {isLoading && <div className="absolute inset-0 flex items-center justify-center bg-background/70"><LoadingSpinner text={t("Loading PDF...")} /></div>}
       {error && <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/90 p-4 text-center">
-        <p className="text-red-600">{error}</p>
-        <button onClick={() => setRetry((value) => value + 1)} className="rounded-md border px-4 py-2">Retry</button>
+        <p className="text-red-600">{t(error)}</p>
+        <button onClick={() => setRetry((value) => value + 1)} className="rounded-md border px-4 py-2">{t("Retry")}</button>
       </div>}
     </div>
   );
@@ -113,16 +116,17 @@ export default function PdfViewer({ onSize, onMeta, onFields, page = 1, scale = 
 
 // A canvas preview also works on phones whose browsers cannot display blob PDFs in iframes.
 export function PdfDocumentPreview({ blob }: { blob: Blob }) {
+  const { t } = useLanguage();
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(1);
   const [scale, setScale] = useState(0.8);
   return <div className="grid gap-3">
     <div className="flex flex-wrap items-center justify-center gap-2">
-      <button className="rounded border px-3 py-2 disabled:opacity-40" onClick={() => setPage((value) => value - 1)} disabled={page <= 1}>Previous</button>
-      <span className="text-sm">Page {page} of {total}</span>
-      <button className="rounded border px-3 py-2 disabled:opacity-40" onClick={() => setPage((value) => value + 1)} disabled={page >= total}>Next</button>
-      <button className="rounded border px-3 py-2" aria-label="Zoom preview out" onClick={() => setScale((value) => Math.max(0.3, value - 0.1))}>−</button>
-      <button className="rounded border px-3 py-2" aria-label="Zoom preview in" onClick={() => setScale((value) => Math.min(2, value + 0.1))}>+</button>
+      <button className="rounded border px-3 py-2 disabled:opacity-40" onClick={() => setPage((value) => value - 1)} disabled={page <= 1}>{t("Previous")}</button>
+      <span className="text-sm">{t("Page")}{" "}{page}{" "}{t("of")}{" "}{total}</span>
+      <button className="rounded border px-3 py-2 disabled:opacity-40" onClick={() => setPage((value) => value + 1)} disabled={page >= total}>{t("Next")}</button>
+      <button className="rounded border px-3 py-2" aria-label={t("Zoom preview out")} onClick={() => setScale((value) => Math.max(0.3, value - 0.1))}>−</button>
+      <button className="rounded border px-3 py-2" aria-label={t("Zoom preview in")} onClick={() => setScale((value) => Math.min(2, value + 0.1))}>+</button>
     </div>
     <div className="h-[55vh] overflow-auto rounded border bg-white">
       <PdfCanvas source={blob} page={page} scale={scale} onMeta={({ numPages }) => setTotal(numPages)} />

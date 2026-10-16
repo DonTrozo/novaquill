@@ -1,5 +1,7 @@
 "use client";
 
+import { useLanguage } from "@/context/LanguageContext";
+
 import type { TextElement } from "@/components/DocumentFillLayer";
 import { documentVersion } from "@/lib/documentVersion";
 import type { InkStroke } from "@/lib/documentInk";
@@ -57,6 +59,7 @@ export default function Finalizer({
   onBeforeSignIn: () => Promise<void>;
   resumePreview?: boolean;
 }) {
+  const { t } = useLanguage();
   const { file } = useUpload();
   const { status } = useSession();
   const router = useRouter();
@@ -155,7 +158,7 @@ export default function Finalizer({
     } catch (err) {
       console.error("PDF preview error:", err);
       const message = err instanceof Error ? err.message : "Failed to generate preview";
-      setError(`Error: ${message}. Please adjust the document and try again.`);
+      setError(t("Error: {message}. Please adjust the document and try again.", { message: t(message) }));
     } finally {
       setIsProcessing(false);
     }
@@ -224,7 +227,7 @@ export default function Finalizer({
     } catch (err) {
       console.error("PDF confirmation error:", err);
       const message = err instanceof Error ? err.message : "Failed to confirm download";
-      setError(`Error: ${message}. Please try again.`);
+      setError(t("Error: {message}. Please try again.", { message: t(message) }));
     } finally {
       downloadInProgress.current = false;
       setIsConfirming(false);
@@ -237,7 +240,7 @@ export default function Finalizer({
         <div className="rounded-lg border border-red-200 bg-red-50 p-3">
           <div className="flex items-center gap-2 text-sm text-red-700">
             <span>⚠️</span>
-            <span>{error} {error.includes("Upgrade to Pro") && <a href="/pricing" className="underline font-medium">View Pro plans</a>}</span>
+            <span>{t(error)} {error.includes("Upgrade to Pro") && <a href="/pricing" className="underline font-medium">{t("View Pro plans")}</a>}</span>
           </div>
         </div>
       )}
@@ -246,21 +249,19 @@ export default function Finalizer({
         onClick={onPreview}
         disabled={!canFinalize || drawing || isProcessing || isConfirming}
         className="w-full rounded-md bg-[color:var(--color-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        aria-label="Finish and preview signed PDF"
+        aria-label={t("Finish and preview signed PDF")}
       >
-        {isProcessing ? "Creating preview..." : isPreviewCurrent ? "Update Preview" : "Finish & Preview"}
+        {isProcessing ? t("Creating preview...") : isPreviewCurrent ? t("Update Preview") : t("Finish & Preview")}
       </button>
 
       {isProcessing && (
         <div className="text-center text-sm text-foreground/70">
-          <LoadingSpinnerSmall text="Creating preview..." />
+          <LoadingSpinnerSmall text={t("Creating preview...")} />
         </div>
       )}
 
       {preview && !isPreviewCurrent && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-          The document changed after this preview was created. Update the preview before downloading.
-        </div>
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">{t("The document changed after this preview was created. Update the preview before downloading.")}</div>
       )}
 
       {preview && isPreviewCurrent && createPortal(
@@ -268,40 +269,34 @@ export default function Finalizer({
           <div className="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-xl bg-background shadow-2xl">
             <div className="flex flex-col gap-2 border-b border-foreground/10 p-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h2 className="text-lg font-semibold">Review your signed PDF</h2>
-                <p className="mt-1 text-sm text-foreground/70">
-                  Check every page before downloading. A free document credit is used only on the first download of this completed version. Pro has unlimited signing.
-                </p>
+                <h2 className="text-lg font-semibold">{t("Review your signed PDF")}</h2>
+                <p className="mt-1 text-sm text-foreground/70">{t("Check every page before downloading. A free document credit is used only on the first download of this completed version. Pro has unlimited signing.")}</p>
               </div>
               <button
                 type="button"
                 onClick={clearPreview}
                 disabled={isConfirming}
                 className="rounded-md border border-foreground/20 px-3 py-1.5 text-sm hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Back to Edit
-              </button>
+              >{t("Back to Edit")}</button>
             </div>
             <div className="min-h-0 flex-1 p-4">
               <PdfDocumentPreview blob={preview.blob} />
             </div>
             <div className="grid gap-2 border-t border-foreground/10 p-4 sm:flex sm:items-center sm:justify-end">
-              {error && <p role="alert" className="text-sm text-red-600 sm:mr-auto">{error} {error.includes("Upgrade to Pro") && <a href="/pricing" className="underline">View Pro plans</a>}</p>}
+              {error && <p role="alert" className="text-sm text-red-600 sm:mr-auto">{t(error)} {error.includes("Upgrade to Pro") && <a href="/pricing" className="underline">{t("View Pro plans")}</a>}</p>}
               <button
                 type="button"
                 onClick={clearPreview}
                 disabled={isConfirming || status === "loading"}
                 className="rounded-md border border-foreground/20 px-4 py-2 text-sm transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Back to Edit
-              </button>
+              >{t("Back to Edit")}</button>
               <button
                 type="button"
                 onClick={onConfirmDownload}
                 disabled={isConfirming || status === "loading"}
                 className="rounded-md bg-[color:var(--color-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isConfirming ? "Preparing download..." : status === "loading" ? "Checking sign-in…" : status === "authenticated" ? "Download Signed PDF" : "Sign in & Download"}
+                {isConfirming ? t("Preparing download...") : status === "loading" ? t("Checking sign-in…") : status === "authenticated" ? t("Download Signed PDF") : t("Sign in & Download")}
               </button>
             </div>
           </div>
@@ -309,9 +304,7 @@ export default function Finalizer({
       )}
 
       {!canFinalize && (
-        <div className="text-center text-xs text-foreground/60">
-          Add a signature, text, date, initials, or checkbox to preview the final PDF
-        </div>
+        <div className="text-center text-xs text-foreground/60">{t("Add a signature, text, date, initials, or checkbox to preview the final PDF")}</div>
       )}
     </div>
   );

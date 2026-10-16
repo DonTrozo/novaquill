@@ -1,3 +1,7 @@
+"use client";
+
+import { useLanguage } from "@/context/LanguageContext";
+
 import React from 'react';
 
 interface LoadingSpinnerProps {
@@ -11,6 +15,7 @@ export default function LoadingSpinner({
   text, 
   className = '' 
 }: LoadingSpinnerProps) {
+  const { t } = useLanguage();
   const sizeClasses = {
     sm: 'w-4 h-4',
     md: 'w-8 h-8',
@@ -28,10 +33,10 @@ export default function LoadingSpinner({
       <div 
         className={`animate-spin inline-block ${sizeClasses[size]} ${borderClasses[size]} border-foreground/30 border-t-foreground/70 rounded-full`}
         role="status"
-        aria-label="Loading"
+        aria-label={t("Loading")}
       />
       {text && (
-        <p className="mt-3 text-foreground/70 text-sm">{text}</p>
+        <p className="mt-3 text-foreground/70 text-sm">{t(text)}</p>
       )}
     </div>
   );

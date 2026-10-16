@@ -1,3 +1,5 @@
+import { requestLocale } from "@/lib/requestLocale";
+import { createTranslator } from "@/lib/i18n";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -26,44 +28,48 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "NovaQuill — Upload. Sign. Download.",
-  description:
-    "NovaQuill is a minimalist, global e‑signing tool. Upload → Sign → Download.",
-  metadataBase: new URL(siteUrl),
-  openGraph: {
-    title: "NovaQuill — Upload. Sign. Download.",
+export async function generateMetadata(): Promise<Metadata> {
+  const t = createTranslator(await requestLocale());
+  return {
+    title: t("NovaQuill — Upload. Sign. Download."),
     description:
-      "Ultra-simple e‑signing with ShapeAssist real-time smoothing. Free and Pro.",
-    url: siteUrl,
-    siteName: "NovaQuill",
-    images: [{ url: "/novaquill-icon-512.png", width: 512, height: 512, alt: "NovaQuill logo" }],
-  },
-  icons: {
-    icon: [
-      { url: "/novaquill-icon-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/novaquill-icon-192.png", sizes: "192x192", type: "image/png" },
-    ],
-    shortcut: "/favicon.ico?v=novaquill-20261006",
-    apple: [{ url: "/novaquill-apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
-  },
-  manifest: "/site.webmanifest",
-};
+      t("NovaQuill is a minimalist, global e‑signing tool. Upload → Sign → Download."),
+    metadataBase: new URL(siteUrl),
+    openGraph: {
+      title: t("NovaQuill — Upload. Sign. Download."),
+      description:
+        t("Ultra-simple e‑signing with ShapeAssist real-time smoothing. Free and Pro."),
+      url: siteUrl,
+      siteName: "NovaQuill",
+      images: [{ url: "/novaquill-icon-512.png", width: 512, height: 512, alt: "NovaQuill logo" }],
+    },
+    icons: {
+      icon: [
+        { url: "/novaquill-icon-32.png", sizes: "32x32", type: "image/png" },
+        { url: "/novaquill-icon-192.png", sizes: "192x192", type: "image/png" },
+      ],
+      shortcut: "/favicon.ico?v=novaquill-20261006",
+      apple: [{ url: "/novaquill-apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    },
+    manifest: "/site.webmanifest",
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await requestLocale();
   return (
-    <html lang="en">
+    <html lang={locale}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ErrorBoundary>
-          <Providers>
+        <Providers initialLocale={locale}>
+          <ErrorBoundary>
             <Header />
             {children}
-          </Providers>
-        </ErrorBoundary>
+          </ErrorBoundary>
+        </Providers>
       </body>
     </html>
   );

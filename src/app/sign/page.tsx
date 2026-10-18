@@ -5,6 +5,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { SigningUsageNotice, useSigningUsage } from "@/components/SigningAllowanceNotice";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import PdfViewer from "@/components/PdfViewer";
 import SignatureTools from "@/components/SignatureTools";
 import DocumentInkLayer, { imageOfInk } from "@/components/DocumentInkLayer";
@@ -59,6 +60,7 @@ export default function SignPage() {
 }
 
 function SigningEditor() {
+  const router = useRouter();
   const { t, locale } = useLanguage();
   const { file, draft, preserveDraft } = useUpload();
   const allowanceState = useSigningUsage();
@@ -86,6 +88,7 @@ function SigningEditor() {
   const [saveInkMessage, setSaveInkMessage] = useState<string | null>(null);
   const [savingInk, setSavingInk] = useState(false);
   const [signatureLibraryVersion, setSignatureLibraryVersion] = useState(0);
+  const [signatureLibraryOpen, setSignatureLibraryOpen] = useState(false);
   const viewerContainerRef = useRef<HTMLDivElement | null>(null);
   const autoFitDone = useRef(Boolean(draft));
   const toolsRef = useRef<HTMLDetailsElement | null>(null);
@@ -175,11 +178,18 @@ function SigningEditor() {
     setRedoInk((current) => current.filter((_, i) => i !== index));
   };
   const saveDocumentInk = async () => {
+    if (!editableInkGroup) return;
     setSavingInk(true); setSaveInkMessage(null);
     try {
-      const dataUrl = imageOfInk(inkStrokes.filter((stroke) => stroke.page === page));
+      if (!isSignedIn) {
+        await preserveForSignIn();
+        router.push("/login?next=/sign");
+        return;
+      }
+      const dataUrl = imageOfInk(inkStrokes.filter((stroke) => stroke.page === page && inkGroupId(stroke) === editableInkGroup));
       if (!dataUrl) throw new Error("Draw a signature on this page first.");
       const response = await fetch("/api/signatures", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataUrl, name: "Document signature" }) });
+      if (response.status === 409) throw new Error("Your saved signatures are full. Remove one from Saved signatures and try again.");
       if (!response.ok) throw new Error("Could not save for next time. Your signature is still on this document.");
       setSaveInkMessage("Saved for next time.");
       setSignatureLibraryVersion((value) => value + 1);
@@ -260,6 +270,7 @@ function SigningEditor() {
   };
 
   const handleSignature = (dataUrl: string) => {
+    setSignatureLibraryOpen(false);
     if (toolsRef.current) toolsRef.current.open = false;
     setSigDataUrl(dataUrl);
     setSignaturePlaced(false);
@@ -319,12 +330,14 @@ function SigningEditor() {
         <SigningUsageNotice state={allowanceState} compact />
       </div>
       <div className="sticky top-0 z-40 mb-3 rounded-lg border border-foreground/15 bg-background p-2 shadow-sm">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button type="button" disabled={drawing || !pdfReady} aria-pressed={activeTool === "draw"}
             onClick={toggleSigning}
             className={`rounded-md px-4 py-2 text-sm font-medium ${activeTool === "draw" ? "border border-foreground/20" : "bg-[color:var(--color-accent)] text-white"}`}>
             {activeTool === "draw" ? t("Done signing") : t("Sign")}
           </button>
+          {activeTool !== "draw" && <button type="button" onClick={() => setSignatureLibraryOpen((open) => !open)} disabled={drawing}
+            aria-expanded={signatureLibraryOpen} aria-controls="signature-library" className="rounded-md border px-3 py-2 text-sm">{t("Saved signatures")}</button>}
           {activeTool === "draw" && inkStrokes.some((stroke) => stroke.page === page) && <button type="button" onClick={undoInk} disabled={drawing} className="px-2 py-2 text-sm underline">{t("Undo")}</button>}
           <div className="ml-auto flex items-center gap-1">
             <button type="button" onClick={() => handleScaleChange("decrease")} disabled={drawing} aria-label={t("Zoom out")} className="rounded border px-3 py-2">−</button>
@@ -339,16 +352,28 @@ function SigningEditor() {
             aria-label={t("Rotate signature right 15 degrees")} className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">{t("↷ Rotate right")}</button>
           <button type="button" onClick={deleteDrawnSignature} disabled={!editableInkGroup || drawing}
             className="min-h-10 rounded-md border border-red-700 bg-background px-3 py-2 text-sm text-red-700 disabled:opacity-50 dark:text-red-400">{t("Delete signature")}</button>
+          <button type="button" onClick={() => void saveDocumentInk()} disabled={savingInk || drawing || !editableInkGroup || status === "loading"}
+            className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">{savingInk ? t("Saving…") : isSignedIn ? t("Save signature for next time") : t("Sign in to save signature")}</button>
           {!editableInkGroup && <span className="text-xs text-foreground/70">{t("Tap a signature to select it first.")}</span>}
           {saveInkMessage && <span role="status" className="text-xs text-foreground/70">{t(saveInkMessage)}</span>}
         </div>}
         <p className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? t("Draw your signature. ShapeAssist is automatic. Tap Done signing, then move, resize or freely rotate your signature.") : activeTool === "select" ? t("Tap an empty box to fill it. Scroll or pinch to navigate. Tap a signature to move, resize or rotate it.") : activeTool === "text" ? t("Tap a highlighted field to fill it, or tap anywhere to add text.") : t("Tap the document to add {tool}.", { tool: t(TOOL_LABELS[activeTool]).toLowerCase() })}</p>
       </div>
+      <section hidden={!signatureLibraryOpen} id="signature-library" aria-label={t("Saved signatures")} className="mb-3 rounded-lg border border-foreground/15 p-3">
+        <p className="mb-3 text-sm text-foreground/70">{isSignedIn ? t("Saved signatures stay in your account for your next visit. Tap one, then tap the document to place it.") : t("Sign in to access your saved signatures. You can still type or upload a signature below.")}</p>
+        {!isSignedIn && <button type="button" disabled={savingInk || status === "loading"} className="mb-3 rounded border px-3 py-2 text-sm" onClick={() => {
+          setSavingInk(true);
+          void preserveForSignIn().then(() => router.push("/login?next=/sign")).catch(() => setSaveInkMessage("Could not keep your document ready for sign-in. Please try again.")).finally(() => setSavingInk(false));
+        }}>{t("Log in")}</button>}
+        {saveInkMessage && <p role="status" className="mb-3 text-sm">{t(saveInkMessage)}</p>}
+        <SignatureTools key={signatureLibraryVersion} onSignature={handleSignature} drawingEnabled={false} />
+      </section>
+      {sigDataUrl && !signaturePlaced && <p role="status" className="mb-3 text-sm">{t("Tap the document to place your chosen signature.")}</p>}
       <details ref={toolsRef} className="mb-3 rounded-lg border border-foreground/15 px-3 py-2">
         <summary className="cursor-pointer text-sm">{t("More tools")}</summary>
         <div className="mt-3 space-y-3">
           <div className="flex flex-wrap gap-2">{(["select", "text", "initials", "date", "checkbox"] as EditorTool[]).map((tool) => <button key={tool} type="button" className={toolButtonClass(tool)} disabled={drawing} onClick={() => { setActiveTool(tool); if (toolsRef.current) toolsRef.current.open = false; }}>{tool === "select" ? t("Navigate") : t(TOOL_LABELS[tool])}</button>)}</div>
-          <details><summary className="cursor-pointer text-sm">{t("Saved, typed or uploaded signature")}</summary><div className="mt-3"><SignatureTools key={signatureLibraryVersion} onSignature={handleSignature} drawingEnabled={false} /></div></details>
+          <button type="button" className="rounded border px-3 py-2 text-sm" onClick={() => { setSignatureLibraryOpen(true); if (toolsRef.current) toolsRef.current.open = false; }}>{t("Saved, typed or uploaded signature")}</button>
           <details><summary className="cursor-pointer text-sm">{t("Pen options")}</summary><div className="mt-3 flex flex-wrap gap-4 text-sm">
             <label className="flex items-center gap-2">{t("Colour")}{" "}<input type="color" aria-label={t("Drawing colour")} value={inkColor} disabled={drawing} onChange={(e) => setInkColor(e.target.value)} /></label>
             <label className="flex items-center gap-2">{t("Pen width")}{" "}<input type="range" min="1" max="6" step="0.5" value={inkWidth} disabled={drawing} aria-label={t("Drawing pen width")} onChange={(e) => setInkWidth(Number(e.target.value))} /></label>
@@ -356,7 +381,6 @@ function SigningEditor() {
           {inkStrokes.some((stroke) => stroke.page === page) && <div className="flex flex-wrap gap-2">
             <button type="button" onClick={undoInk} disabled={drawing} className="rounded border px-3 py-2 text-sm">{t("Undo stroke")}</button>
             <button type="button" onClick={() => { setInkStrokes((current) => current.filter((stroke) => stroke.page !== page)); setRedoInk([]); }} disabled={drawing} className="rounded border px-3 py-2 text-sm">{t("Delete all drawn signatures on this page")}</button>
-            <button type="button" onClick={() => void saveDocumentInk()} disabled={savingInk || drawing || !isSignedIn} className="rounded border px-3 py-2 text-sm">{savingInk ? "Saving…" : t("Save signature for next time")}</button>
           </div>}
           {redoInk.some((stroke) => stroke.page === page) && <button type="button" onClick={redoLastInk} disabled={drawing} className="rounded border px-3 py-2 text-sm">{t("Redo stroke")}</button>}
           {saveInkMessage && <p role="status" className="text-sm">{t(saveInkMessage)}</p>}

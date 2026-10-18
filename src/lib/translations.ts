@@ -1,5 +1,11 @@
 // Portuguese interface copy. Document contents and signature text are never translated.
 export const portuguese: Record<string, string> = {
+  "Saving…": "A guardar…",
+  "Sign in to save signature": "Entre para guardar a assinatura",
+  "Your saved signatures are full. Remove one from Saved signatures and try again.": "A lista de assinaturas guardadas está cheia. Remova uma em Assinaturas guardadas e tente novamente.",
+  "Saved signatures stay in your account for your next visit. Tap one, then tap the document to place it.": "As assinaturas ficam guardadas na sua conta para a próxima visita. Toque numa e depois no documento para a colocar.",
+  "Sign in to access your saved signatures. You can still type or upload a signature below.": "Entre para aceder às suas assinaturas guardadas. Pode digitar ou carregar uma assinatura abaixo.",
+  "Could not keep your document ready for sign-in. Please try again.": "Não foi possível manter o documento pronto para entrar na conta. Tente novamente.",
   "{used} documents · Unlimited signing": "{used} documentos · Assinaturas ilimitadas",
   "{used} / {limit} documents this month": "{used} / {limit} documentos este mês",
   "Tap an empty box to fill it. Scroll or pinch to navigate. Tap a signature to move, resize or rotate it.": "Toque numa caixa vazia para a preencher. Desloque a página ou use dois dedos para navegar. Toque numa assinatura para a mover, redimensionar ou rodar.",

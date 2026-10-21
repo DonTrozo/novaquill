@@ -1,211 +1,36 @@
-"use client";
+import type { Metadata } from "next";
+import HomePage from "@/components/HomePage";
+import { SITE_URL } from "@/lib/siteIdentity";
 
-import { useLanguage } from "@/context/LanguageContext";
-
-import SigningAllowanceNotice from "@/components/SigningAllowanceNotice";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useUpload } from "@/context/UploadContext";
-import { track } from "@/lib/track";
-
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-const ALLOWED_TYPES = ["application/pdf"];
-const VALID_PDF_HEADER = [0x25, 0x50, 0x44, 0x46]; // %PDF
+// Keep this on the homepage: other routes must not claim it as their canonical.
+export const metadata: Metadata = {
+  alternates: { canonical: SITE_URL },
+};
 
 export default function Home() {
-  const { t } = useLanguage();
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
-  const router = useRouter();
-  const { setFile } = useUpload();
-  const validatePdfHeader = async (file: File): Promise<boolean> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const array = new Uint8Array(event.target?.result as ArrayBuffer);
-        const isValid = VALID_PDF_HEADER.every((byte, index) => array[index] === byte);
-        resolve(isValid);
-      };
-      reader.readAsArrayBuffer(file.slice(0, 4));
-    });
+  const identity = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": `${SITE_URL}/#website`,
+        url: `${SITE_URL}/`,
+        name: "NovaQuill",
+        alternateName: "NovaQuill.co.za",
+        description: "Upload, fill, sign and download PDF documents online.",
+        publisher: { "@id": `${SITE_URL}/#organization` },
+      },
+      {
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        name: "NovaQuill",
+        url: `${SITE_URL}/`,
+        logo: `${SITE_URL}/novaquill-icon-512.png`,
+      },
+    ],
   };
-
-  const validateFile = async (file: File): Promise<{ isValid: boolean; error?: string }> => {
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return { isValid: false, error: "Please upload a PDF file." };
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      return { isValid: false, error: t("File size must be less than {size}MB.", { size: MAX_FILE_SIZE / (1024 * 1024) }) };
-    }
-
-    const isValidHeader = await validatePdfHeader(file);
-    if (!isValidHeader) {
-      return { isValid: false, error: "Invalid PDF file. Please upload a valid PDF document." };
-    }
-
-    return { isValid: true };
-  };
-
-  const handleFileSelect = async (selectedFile: File) => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const validation = await validateFile(selectedFile);
-      if (!validation.isValid) {
-        setError(validation.error || "Invalid file");
-        return;
-      }
-
-      setFile(selectedFile);
-      track("home_upload_select");
-      router.push("/sign");
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Error processing file. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const onSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0] || null;
-    if (!selectedFile) return;
-    handleFileSelect(selectedFile);
-  };
-
-  const handleDrag = (event: React.DragEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (event.type === "dragenter" || event.type === "dragover") {
-      setDragActive(true);
-    } else if (event.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (event: React.DragEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setDragActive(false);
-
-    const droppedFile = event.dataTransfer.files?.[0] || null;
-    if (droppedFile) {
-      handleFileSelect(droppedFile);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <main className="max-w-5xl mx-auto px-5 py-8 sm:py-14 grid gap-5">
-        <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">{t("Upload. Sign. Download.")}{" "}<span className="text-[color:var(--color-accent)]">{t("Done.")}</span>
-        </h1>
-        <p className="text-lg text-foreground/80 max-w-2xl">{t("Sign your PDF in minutes. ShapeAssist smooths your handwriting automatically.")}</p>
-        <section id="upload" className="rounded-2xl border border-foreground/15 bg-background p-6 shadow-sm">
-          <div
-            className={`rounded-xl border-2 border-dashed p-6 sm:p-10 text-center transition-colors ${
-              dragActive
-                ? "border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/5"
-                : "border-foreground/20 hover:border-foreground/35"
-            }`}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-          >
-            <div className="mx-auto grid max-w-xl gap-4">
-              <div>
-                <p className="text-xl font-medium">{dragActive ? t("Drop your PDF here") : t("Upload your PDF")}</p>
-                <p className="mt-1 text-sm text-foreground/70">{t("Choose a PDF or drop it here. Sign in only when you download.")}</p>
-              </div>
-              <input
-                id="home-file-input"
-                type="file"
-                accept="application/pdf"
-                onChange={onSelect}
-                className="hidden"
-                disabled={isLoading}
-              />
-              <label htmlFor="home-file-input" className="mx-auto inline-flex cursor-pointer items-center rounded-md px-6 py-3 bg-[color:var(--color-accent)] text-white hover:opacity-90 transition">
-                {isLoading ? t("Opening editor...") : t("Upload PDF")}
-              </label>
-              <p className="text-xs text-foreground/60">{t("PDF only. Maximum size:")}{" "}{MAX_FILE_SIZE / (1024 * 1024)}MB.</p>
-            </div>
-          </div>
-
-          <div className="mt-4"><SigningAllowanceNotice compact /></div>
-          {error && (
-            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              {t(error)}
-            </div>
-          )}
-        </section>
-
-        <div className="grid sm:grid-cols-3 gap-6 pt-10">
-          <div className="rounded-lg border border-foreground/10 p-5 bg-background/60">
-            <div className="font-medium mb-1">{t("1. Upload")}</div>
-            <div className="text-foreground/70 text-sm">{t("Drag-and-drop or select your PDF.")}</div>
-          </div>
-          <div className="rounded-lg border border-foreground/10 p-5 bg-background/60">
-            <div className="font-medium mb-1">{t("2. Sign")}</div>
-            <div className="text-foreground/70 text-sm">{t("Sign directly on your PDF. Saved, typed and uploaded signatures are also available.")}</div>
-          </div>
-          <div className="rounded-lg border border-foreground/10 p-5 bg-background/60">
-            <div className="font-medium mb-1">{t("3. Download")}</div>
-            <div className="text-foreground/70 text-sm">{t("Get a clean flattened PDF. No branding.")}</div>
-          </div>
-        </div>
-
-        <section className="pt-6 grid gap-6">
-          <h2 className="text-2xl font-semibold">{t("Why NovaQuill")}</h2>
-          <div className="grid sm:grid-cols-3 gap-6">
-            <div className="rounded-lg border border-foreground/10 p-5">
-              <div className="font-medium mb-1">ShapeAssist</div>
-              <div className="text-foreground/70 text-sm">{t("Instant stroke correction after each pen lift for smooth, natural signatures.")}</div>
-            </div>
-            <div className="rounded-lg border border-foreground/10 p-5">
-              <div className="font-medium mb-1">{t("Clean flattened PDFs")}</div>
-              <div className="text-foreground/70 text-sm">{t("No watermarks, no branding, and a simple output file you can share immediately.")}</div>
-            </div>
-            <div className="rounded-lg border border-foreground/10 p-5">
-              <div className="font-medium mb-1">{t("Ultra-simple")}</div>
-              <div className="text-foreground/70 text-sm">{t("Upload → Sign → Download. Single signer. No emails, no clutter.")}</div>
-            </div>
-          </div>
-          <div className="grid sm:grid-cols-3 gap-6">
-            <div className="rounded-lg border border-foreground/10 p-5">
-              <div className="font-medium mb-1">{t("Free & Pro")}</div>
-              <div className="text-foreground/70 text-sm">{t("Free: 3 documents per month. Pro: unlimited signing, cloud document storage and priority support.")}</div>
-            </div>
-            <div className="rounded-lg border border-foreground/10 p-5">
-              <div className="font-medium mb-1">{t("Private by design")}</div>
-              <div className="text-foreground/70 text-sm">{t("Encrypted storage for signed documents and user-controlled deletion.")}</div>
-            </div>
-            <div className="rounded-lg border border-foreground/10 p-5">
-              <div className="font-medium mb-1">{t("Global pricing")}</div>
-              <div className="text-foreground/70 text-sm">{t("EUR pricing with local ZAR checkout via PayFast.")}</div>
-            </div>
-          </div>
-        </section>
-
-        <section className="pt-6 grid gap-4">
-          <h2 className="text-2xl font-semibold">{t("FAQ")}</h2>
-          <details className="rounded-lg border border-foreground/10 p-4">
-            <summary className="cursor-pointer font-medium">{t("Do I need an account?")}</summary>
-            <div className="text-foreground/70 text-sm mt-2">{t("You can upload, fill, sign and preview without an account. Sign in to download. Your document stays ready while you sign in.")}</div>
-          </details>
-          <details className="rounded-lg border border-foreground/10 p-4">
-            <summary className="cursor-pointer font-medium">{t("Are there watermarks?")}</summary>
-            <div className="text-foreground/70 text-sm mt-2">{t("Never. Signed PDFs are clean and branding-free.")}</div>
-          </details>
-          <details className="rounded-lg border border-foreground/10 p-4">
-            <summary className="cursor-pointer font-medium">{t("Is this a qualified digital signature?")}</summary>
-            <div className="text-foreground/70 text-sm mt-2">{t("No. NovaQuill creates simple electronic signatures by placing your signature image onto a PDF. Advanced or qualified signatures require a certified trust service provider.")}</div>
-          </details>
-        </section>
-      </main>
-    </div>
-  );
+  return <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(identity).replace(/</g, "\\u003c") }} />
+    <HomePage />
+  </>;
 }

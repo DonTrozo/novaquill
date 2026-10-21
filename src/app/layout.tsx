@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/siteIdentity";
 import { requestLocale } from "@/lib/requestLocale";
 import { createTranslator } from "@/lib/i18n";
 import type { Metadata } from "next";
@@ -7,16 +8,7 @@ import Providers from "./providers";
 import Header from "@/components/Header";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
-function getSiteUrl(): string {
-  const candidate = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
-  try {
-    return new URL(candidate).toString();
-  } catch {
-    return "http://localhost:3000";
-  }
-}
-
-const siteUrl = getSiteUrl();
+const siteUrl = SITE_URL;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,12 +23,12 @@ const geistMono = Geist_Mono({
 export async function generateMetadata(): Promise<Metadata> {
   const t = createTranslator(await requestLocale());
   return {
-    title: t("NovaQuill — Upload. Sign. Download."),
+    title: t("NovaQuill — Fill & Sign PDFs Online"),
     description:
-      t("NovaQuill is a minimalist, global e‑signing tool. Upload → Sign → Download."),
+      t("Fill PDF forms, add text and sign documents online with NovaQuill at novaquill.co.za. Upload, sign, preview and download your PDF."),
     metadataBase: new URL(siteUrl),
     openGraph: {
-      title: t("NovaQuill — Upload. Sign. Download."),
+      title: t("NovaQuill — Fill & Sign PDFs Online"),
       description:
         t("Ultra-simple e‑signing with ShapeAssist real-time smoothing. Free and Pro."),
       url: siteUrl,

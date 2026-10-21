@@ -1,5 +1,7 @@
 // Portuguese interface copy. Document contents and signature text are never translated.
 export const portuguese: Record<string, string> = {
+  "NovaQuill — Fill & Sign PDFs Online": "NovaQuill — Preencha e assine PDFs online",
+  "Fill PDF forms, add text and sign documents online with NovaQuill at novaquill.co.za. Upload, sign, preview and download your PDF.": "Preencha formulários PDF, adicione texto e assine documentos online com a NovaQuill em novaquill.co.za. Carregue, assine, pré-visualize e descarregue o seu PDF.",
   "Saving…": "A guardar…",
   "Sign in to save signature": "Entre para guardar a assinatura",
   "Your saved signatures are full. Remove one from Saved signatures and try again.": "A lista de assinaturas guardadas está cheia. Remova uma em Assinaturas guardadas e tente novamente.",

@@ -16,6 +16,7 @@ await db.query('INSERT INTO "Document" (id,"userId",filename,"mimeType",size,pat
 // Exercise the exact SQL that will be deployed, against pre-existing data.
 await db.exec(await migration('20261022190000_add_privacy_safeguards'));
 await db.exec(await migration('20261022193000_public_privacy_requests_and_holds'));
+await db.exec(await migration('20261030170000_billing_cancellation'));
 
 test('the additive migration preserves existing users and documents', async () => {
   assert.equal((await db.query('SELECT * FROM "User"')).rows.length, 2);
@@ -61,6 +62,15 @@ INSERT INTO "PrivacyRequest" (id,kind,"encryptedMessage",status,"resolvedAt","re
   assert.equal((await db.query('SELECT id FROM "PrivacyRequest" WHERE id=$1', ['public-request'])).rows.length, 1);
 });
 
+test('billing migration protects mandate uniqueness and permits encrypted public requests', async () => {
+  await db.query('UPDATE "User" SET "payfastSubscriptionIdHash"=$1,"payfastSubscriptionToken"=$2 WHERE id=$3', ['same-token-hash',new Uint8Array([1,2,3]),'owner-a']);
+  await assert.rejects(db.query('UPDATE "User" SET "payfastSubscriptionIdHash"=$1 WHERE id=$2', ['same-token-hash','owner-b']));
+  await db.query('INSERT INTO "BillingRequest" (id,"userId",kind,"encryptedContact","encryptedMessage") VALUES ($1,$2,$3,$4,$5)', ['billing-account','owner-a','REFUND',new Uint8Array([3]),new Uint8Array([4])]);
+  await db.query('INSERT INTO "BillingRequest" (id,kind,"encryptedContact","encryptedMessage") VALUES ($1,$2,$3,$4)', ['billing-public','CANCELLATION',new Uint8Array([3]),new Uint8Array([4])]);
+  const record=(await db.query('SELECT * FROM "BillingRequest" WHERE id=$1',['billing-public'])).rows[0];
+  assert.equal(record.userId,null);assert.equal(record.status,'OPEN');assert.equal(record.retentionHold,false);
+});
+
 test('account foreign-key cascades remove only the deleted account records', async () => {
   await db.query('INSERT INTO "PrivacyRequest" (id,"userId",kind,"encryptedMessage") VALUES ($1,$2,$3,$4)', ['account-request','owner-a','CORRECTION',new Uint8Array([1])]);
   await db.query('INSERT INTO "Session" (id,"userId","sessionToken",expires) VALUES ($1,$2,$3,NOW())', ['session-a','owner-a','test-session']);
@@ -69,4 +79,9 @@ test('account foreign-key cascades remove only the deleted account records', asy
   assert.equal((await db.query('SELECT id FROM "User" WHERE id=$1', ['owner-b'])).rows.length, 1);
   assert.equal((await db.query('SELECT id FROM "SavedSignature" WHERE id=$1', ['sig-b'])).rows.length, 1);
   assert.equal((await db.query('SELECT id FROM "PrivacyRequest" WHERE id=$1', ['public-request'])).rows.length, 1);
+});
+
+test('deleting an account detaches outstanding billing cases for justified response handling',async()=>{
+  const item=(await db.query('SELECT "userId",status FROM "BillingRequest" WHERE id=$1',['billing-account'])).rows[0];
+  assert.equal(item.userId,null);assert.equal(item.status,'OPEN');
 });

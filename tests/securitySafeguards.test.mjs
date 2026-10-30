@@ -7,6 +7,8 @@ import { allowedRequestOrigin } from '../src/lib/originPolicy.ts';
 
 const url = (path) => new URL(`../src/${path}`, import.meta.url);
 const crypto = await loadSource(url('lib/crypto.ts'));
+const access = await loadSource(url('lib/subscriptionAccess.ts'));
+const retention = await loadSource(url('lib/retentionPolicy.ts'));
 const signature = await loadSource(url('lib/signatureStorage.ts'), { '@/lib/crypto': crypto });
 const limited = await loadSource(url('lib/limitedJson.ts'));
 const previousKey = process.env.STORAGE_ENCRYPTION_KEY;
@@ -22,6 +24,7 @@ function context(overrides = {}) {
     savedSignature: { count: async () => 0, findUnique: async () => state.savedSignature ?? null, create: async ({ data }) => { state.signatureWrites.push(data); return { ...data, id: 'sig-a', createdAt: new Date() }; }, delete: async () => { state.dbDeleted = true; }, findMany: async () => [] },
     securityEvent: { create: async ({ data }) => state.events.push(data), deleteMany: async () => ({ count: 1 }), findMany: async () => [] },
     payfastEvent: { findMany: async () => [] },
+    billingRequest: { findMany: async () => [], deleteMany: async () => ({ count: 0 }) },
     privacyRequest: { updateMany: async () => ({ count: 0 }), create: async ({ data }) => { state.request = data; return { id: 'request-a', kind: data.kind, status: 'OPEN', createdAt: new Date() }; }, findMany: async () => [] },
     $queryRaw: async () => [{ id: 'owner-a' }],
   };
@@ -29,6 +32,7 @@ function context(overrides = {}) {
   const stubs = {
     'next-auth': { getServerSession: async () => state.session }, '@/lib/auth': { authOptions: {} }, '@/lib/prisma': { prisma },
     '@/lib/guard': { isAllowedOrigin: (req) => allowedRequestOrigin(req, []), rateLimitOk: async () => true },
+    '@/lib/subscriptionAccess': access, '@/lib/payfastSubscriptions': { cancelPayfastSubscription: async () => { throw new Error('Test provider unconfigured'); } },
     '@/lib/crypto': crypto, '@/lib/signatureStorage': signature, '@/lib/limitedJson': limited,
     '@/lib/securityAudit': { recordSecurityEvent: async (action, actorId, targetId, digest) => state.events.push({ action, actorId, targetId, digest }) },
     '@/lib/storage': { readFileAbsolute: async () => { state.read = true; return Buffer.from('%PDF-test'); }, deleteFileAbsolute: async (path) => { if (state.storageFailure) throw new Error('provider secret'); state.deletedFiles.push(path); } },
@@ -204,14 +208,14 @@ test('the storage layer uploads encrypted bytes and rejects damaged new envelope
 test('retention requires a secret and approved periods, and cannot delete open requests or signed contracts', async () => {
   const prior = { CRON_SECRET: process.env.CRON_SECRET, SECURITY_LOG_RETENTION_DAYS: process.env.SECURITY_LOG_RETENTION_DAYS, PRIVACY_REQUEST_RETENTION_DAYS: process.env.PRIVACY_REQUEST_RETENTION_DAYS };
   const actions = []; const secret = randomBytes(32).toString('hex');
-  const prisma = { securityEvent: { deleteMany: (args) => { actions.push(['logs', args]); return { count: 1 }; } }, privacyRequest: { deleteMany: (args) => { actions.push(['requests', args]); return { count: 2 }; } }, $transaction: (jobs) => Promise.all(jobs) };
+  const prisma = { billingRequest: { deleteMany: (args) => { actions.push(['billing', args]); return { count: 0 }; } }, securityEvent: { deleteMany: (args) => { actions.push(['logs', args]); return { count: 1 }; } }, privacyRequest: { deleteMany: (args) => { actions.push(['requests', args]); return { count: 2 }; } }, $transaction: (jobs) => Promise.all(jobs) };
   try {
     delete process.env.CRON_SECRET;
-    const route = await loadSource(url('app/api/internal/privacy-retention/route.ts'), { '@/lib/prisma': { prisma } });
+    const route = await loadSource(url('app/api/internal/privacy-retention/route.ts'), { '@/lib/prisma': { prisma }, '@/lib/retentionPolicy': retention });
     const req = (authorization = `Bearer ${secret}`) => new Request('https://www.novaquill.co.za/api/internal/privacy-retention', { headers: { authorization } });
     assert.equal((await route.GET(req())).status, 503); process.env.CRON_SECRET = secret;
     assert.equal((await route.GET(req('Bearer wrong'))).status, 401);
-    delete process.env.SECURITY_LOG_RETENTION_DAYS; assert.equal((await route.GET(req())).status, 503);
+    process.env.SECURITY_LOG_RETENTION_DAYS = 'invalid'; assert.equal((await route.GET(req())).status, 503);
     Object.assign(process.env, { SECURITY_LOG_RETENTION_DAYS: '90', PRIVACY_REQUEST_RETENTION_DAYS: '365' });
     assert.equal((await route.GET(req())).status, 200);
     assert.equal(actions[1][1].where.status, 'CLOSED'); assert.ok(actions[1][1].where.resolvedAt.lt instanceof Date);
@@ -296,4 +300,20 @@ test('account deletion detaches held privacy records and does not purge held sec
   assert.equal((await route.POST(request('/api/dsar/delete'))).status, 204);
   assert.deepEqual(calls[0][1], { where: { userId: 'owner-a', retentionHold: true }, data: { userId: null } });
   assert.equal(calls[1][1].where.retentionHold, false);
+});
+
+test('account cleanup cancels a linked mandate first and preserves the account if the provider fails',async()=>{
+ for(const failure of [false,true]) {
+  const {state,stubs}=context();state.user.payfastSubscriptionToken=crypto.encryptBuffer(Buffer.from('test-provider-token'));const calls=[];
+  stubs['@/lib/payfastSubscriptions']={cancelPayfastSubscription:async token=>{assert.equal(token,'test-provider-token');calls.push('cancel');if(failure)throw new Error('provider unavailable');}};
+  stubs['@/lib/storage'].deleteFileAbsolute=async()=>calls.push('delete-file');
+  const route=await loadSource(url('app/api/dsar/delete/route.ts'),stubs);const response=await route.POST(request('/api/dsar/delete'));
+  assert.equal(response.status,failure?503:204);assert.deepEqual(calls,failure?['cancel']:['cancel','delete-file']);assert.equal(state.dbDeleted,!failure);
+ }
+});
+
+test('legacy recurring payments require a billing reconciliation before erasing the account',async()=>{
+ const {state,stubs}=context();state.user.payfastLastPaymentId='legacy-payment';
+ const route=await loadSource(url('app/api/dsar/delete/route.ts'),stubs);const response=await route.POST(request('/api/dsar/delete'));
+ assert.equal(response.status,409);assert.equal((await response.json()).help,'/billing');assert.equal(state.dbDeleted,false);assert.deepEqual(state.deletedFiles,[]);
 });

@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FREE_DOCUMENT_LIMIT, remainingDocuments, reserveDocumentCredit, usageMonth } from '../src/lib/signingQuota.ts';
+import { loadSource } from './helpers/loadSource.mjs';
+const access = await loadSource(new URL('../src/lib/subscriptionAccess.ts', import.meta.url));
+const { FREE_DOCUMENT_LIMIT, remainingDocuments, reserveDocumentCredit, usageMonth } = await loadSource(new URL('../src/lib/signingQuota.ts', import.meta.url), { './subscriptionAccess': access });
 
 function store(initial) {
   let user = initial;

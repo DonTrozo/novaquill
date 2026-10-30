@@ -4,18 +4,19 @@ import { useLanguage } from "@/context/LanguageContext";
 import type { privacyNotice } from "@/lib/privacyNotice";
 
 type Notice = ReturnType<typeof privacyNotice>;
-export default function PrivacyNotice() {
+export default function PrivacyNotice({ initialNotice }: { initialNotice?: Notice }) {
   const { t, locale } = useLanguage();
-  const [notice, setNotice] = useState<Notice | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(initialNotice ?? null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
+    if (initialNotice) return;
     const controller = new AbortController();
     void fetch("/api/privacy-notice", { signal: controller.signal, cache: "no-store" }).then((response) => {
       if (!response.ok) throw new Error("Notice unavailable");
       return response.json() as Promise<Notice>;
     }).then(setNotice).catch(() => { if (!controller.signal.aborted) setFailed(true); });
     return () => controller.abort();
-  }, []);
+  }, [initialNotice]);
   if (failed) return <p role="alert">{t("Could not load the privacy notice. Please try again.")}</p>;
   if (!notice) return <p role="status">{t("Loading privacy notice…")}</p>;
   const org = notice.organisation;
@@ -25,6 +26,7 @@ export default function PrivacyNotice() {
     {org.legalName && <address className="not-italic">
       <p className="font-medium">{org.legalName}{org.registrationNumber ? ` · ${org.registrationNumber}` : ""}</p>
       <p className="whitespace-pre-line">{org.businessAddress}</p>
+      {org.telephone && <p>{org.telephone}</p>}
       <p>{t("Information Officer")}: {org.informationOfficer}</p>
       {org.privacyEmail && <a className="underline" href={`mailto:${org.privacyEmail}`}>{org.privacyEmail}</a>}
     </address>}

@@ -45,3 +45,7 @@ Supporting records: REVIEW.md, OPERATIONS.md, PROCESSING_REGISTER.md, PAIA_MANUA
 ## 30 October policy additions
 
 See POLICY_ADAPTATION_REVIEW.md for the original NovaQuill terms, subscription/refund and browser-storage additions following comparison with Smallpdf's legal documents. Expanded EN/PT policies and links are prepared locally. Cancellation operations, immediate downgrade/paid-through treatment, complete supplier disclosures and agreement acceptance remain release checks; no code or policy change is evidence that these operations have occurred.
+
+## Policy-review follow-up
+
+POLICY_GAP_FIXES_20261030.md records cancellation/paid-period enforcement, public encrypted billing requests, specific shared retention limits, initial-HTML privacy text and expanded PAIA procedures. These changes do not complete the absent company/officer/provider evidence. All ten still require the genuine evidence/sign-off described above. Retention job execution and actual payment-provider account integration must be verified separately from local tests.

@@ -1,7 +1,12 @@
+import { hasProAccess } from "./subscriptionAccess";
 export const FREE_DOCUMENT_LIMIT = 3;
 
 export type QuotaUser = {
   subscription: "FREE" | "PRO";
+  subscriptionPlan?: string | null;
+  lastPaymentAt?: Date | string | null;
+  subscriptionPaidThroughAt?: Date | string | null;
+  subscriptionCancelledAt?: Date | string | null;
   usageYearMonth: number | null;
   docsUsedThisMonth: number;
 };
@@ -11,7 +16,7 @@ export function usageMonth(date = new Date()) {
 }
 
 export function remainingDocuments(user: QuotaUser, month: number) {
-  if (user.subscription === "PRO") return null;
+  if (hasProAccess(user)) return null;
   const used = user.usageYearMonth === month ? user.docsUsedThisMonth : 0;
   return Math.max(0, FREE_DOCUMENT_LIMIT - used);
 }

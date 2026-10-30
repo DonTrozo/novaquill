@@ -2,6 +2,7 @@
 
 import { useLanguage } from "@/context/LanguageContext";
 
+import SubscriptionControls from "@/components/SubscriptionControls";
 import PrivacyRequestForm from "@/components/PrivacyRequestForm";
 import SigningAllowanceNotice from "@/components/SigningAllowanceNotice";
 
@@ -226,6 +227,8 @@ export default function DashboardPage() {
             <div className="text-xl font-semibold mt-1">{analytics.reduce((sum, item) => sum + item.count, 0)}</div>
           </div>
         </div>
+
+        <SubscriptionControls />
 
         <div className="rounded-lg border border-foreground/15 p-4">
           <div className="text-sm text-foreground/60 mb-2">{t("Recent signed documents")}</div>

@@ -10,14 +10,18 @@ export default async function LegalPolicyPage({ title, titlePt, sections }: Prop
   return <main className="mx-auto max-w-5xl space-y-7 px-6 py-12">
     <header className="space-y-3">
       <h1 className="text-2xl font-semibold">{pt ? titlePt : title}</h1>
-      <p className="text-sm text-foreground/65">{pt ? "Versão preparada para revisão" : "Version prepared for review"}: {LEGAL_POLICY_VERSION}</p>
+      <p className="text-sm text-foreground/65">{pt ? "Última actualização" : "Last updated"}: {LEGAL_POLICY_VERSION}</p>
       {missing.length > 0 && <p role="status" className="rounded-md border border-foreground/20 p-3 text-sm">{pt ? "Os dados legais e de contacto do prestador devem ser confirmados antes da publicação. Esta versão não confirma aprovação ou procedimentos operacionais concluídos." : "The provider's legal and contact details must be confirmed before publication. This version does not establish approval or completed operational procedures."}</p>}
       {org.legalName && <address className="space-y-1 text-sm not-italic text-foreground/80">
         <p className="font-medium">{org.legalName}{org.registrationNumber ? ` · ${org.registrationNumber}` : ""}</p>
         <p className="whitespace-pre-line">{org.businessAddress}</p>
+        {org.telephone && <p>{org.telephone}</p>}
+        {org.placeOfRegistration && <p>{pt ? "Local de registo" : "Place of registration"}: {org.placeOfRegistration}</p>}
+        {org.officeBearers && <p>{pt ? "Representantes legais" : "Office bearers"}: {org.officeBearers}</p>}
         {org.privacyEmail && <p><a className="underline" href={`mailto:${org.privacyEmail}`}>{org.privacyEmail}</a></p>}
       </address>}
       <nav aria-label={pt ? "Documentos legais" : "Legal documents"} className="flex flex-wrap gap-x-5 gap-y-2 text-sm underline">
+        <Link href="/billing">{pt ? "Apoio" : "Help"}</Link>
         <Link href="/terms">{pt ? "Termos" : "Terms"}</Link>
         <Link href="/privacy">{pt ? "Privacidade" : "Privacy"}</Link>
         <Link href="/subscription-policy">{pt ? "Subscrições e reembolsos" : "Subscriptions and refunds"}</Link>

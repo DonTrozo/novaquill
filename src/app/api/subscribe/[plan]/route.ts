@@ -31,11 +31,13 @@ export async function GET(
   }
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) return new Response("Unauthorized", { status: 401 });
+  if (user.subscription === "PRO" && !user.subscriptionCancelledAt) return new Response("Manage or cancel your existing subscription in the dashboard before starting another recurring payment.", { status: 409 });
 
   const env: "sandbox" | "live" = (process.env.PAYFAST_ENV as "sandbox" | "live") === "live" ? "live" : "sandbox";
   const merchant_id = process.env.PAYFAST_MERCHANT_ID || "";
   const merchant_key = process.env.PAYFAST_MERCHANT_KEY || "";
   const passphrase = process.env.PAYFAST_PASSPHRASE || undefined;
+  if (!merchant_id || !merchant_key || !passphrase) return new Response("Payment setup is incomplete. No payment has been started.", { status: 503 });
 
   const planConfig = getSubscriptionPlanConfig(plan);
   // EUR pricing, convert to ZAR for PayFast

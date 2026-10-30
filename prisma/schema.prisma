@@ -23,12 +23,17 @@ model User {
   documents     Document[]
   savedSignatures SavedSignature[]
   privacyRequests PrivacyRequest[]
+  billingRequests BillingRequest[]
 
   // Subscription and usage tracking
   subscription  SubscriptionStatus @default(FREE)
   subscriptionPlan SubscriptionPlan?
   lastPaymentAt DateTime?
   payfastLastPaymentId String?
+  payfastSubscriptionToken Bytes?
+  payfastSubscriptionIdHash String? @unique
+  subscriptionPaidThroughAt DateTime?
+  subscriptionCancelledAt DateTime?
   docsUsedThisMonth Int            @default(0)
   usageYearMonth  Int?             // e.g., 202508 for August 2025
 }
@@ -150,6 +155,23 @@ model PrivacyRequest {
   notifiedAt       DateTime?
   encryptedOutcome Bytes?
 
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model BillingRequest {
+  id String @id @default(cuid())
+  userId String?
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  kind String
+  encryptedContact Bytes
+  encryptedMessage Bytes
+  encryptedOutcome Bytes?
+  status String @default("OPEN")
+  retentionHold Boolean @default(false)
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+  notifiedAt DateTime?
   @@index([userId, createdAt])
   @@index([status, createdAt])
 }

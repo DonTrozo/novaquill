@@ -1,3 +1,4 @@
+import { hasProAccess } from "@/lib/subscriptionAccess";
 import { prisma } from "@/lib/prisma";
 import { isAllowedOrigin, rateLimitOk } from "@/lib/guard";
 import { getServerSession } from "next-auth";
@@ -13,7 +14,7 @@ export async function GET() {
 	}
 	const user = await prisma.user.findUnique({ where: { id: session.user.id } });
 	if (!user) return new Response("Not found", { status: 404 });
-	const isPro = user.subscription === "PRO";
+	const isPro = hasProAccess(user);
 	const currentYm = usageMonth();
 	const used = user.usageYearMonth === currentYm ? user.docsUsedThisMonth : 0;
 	return new Response(
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
 		return new Response(JSON.stringify({ error: "Rate limit" }), { status: 429 });
 	}
 	const result = await reserveDocumentCredit({
-		read: () => prisma.user.findUnique({ where: { id: user.id }, select: { subscription: true, usageYearMonth: true, docsUsedThisMonth: true } }),
+		read: () => prisma.user.findUnique({ where: { id: user.id }, select: { subscription: true, subscriptionPlan: true, lastPaymentAt: true, subscriptionPaidThroughAt: true, subscriptionCancelledAt: true, usageYearMonth: true, docsUsedThisMonth: true } }),
 		compareAndSet: async (previous, month, used) => {
 			const updated = await prisma.user.updateMany({
 				where: { id: user.id, subscription: previous.subscription, usageYearMonth: previous.usageYearMonth, docsUsedThisMonth: previous.docsUsedThisMonth },

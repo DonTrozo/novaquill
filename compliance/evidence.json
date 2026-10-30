@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "description": "Record references to real evidence only. No signatures, secrets, ID documents or false approvals belong in this file.",
+  "evidence": {
+    "processing_register_approval": null,
+    "privacy_notice_approval": null,
+    "paia_manual_approval": null,
+    "officer_registration": null,
+    "provider_inventory": null,
+    "provider_contract_coverage": null,
+    "international_transfer_assessment": null,
+    "backup_restore_test": null,
+    "live_provider_security_test": null,
+    "two_account_browser_test": null,
+    "retention_schedule_approval": null,
+    "retention_job_run": null,
+    "rights_request_owner_and_exercise": null,
+    "incident_owner_and_exercise": null,
+    "legacy_data_review": null,
+    "approved_production_release": null
+  }
+}

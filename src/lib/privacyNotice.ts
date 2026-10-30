@@ -1,0 +1,78 @@
+export const PRIVACY_NOTICE_VERSION = "2026-10-30";
+
+export function privacyConfiguration(env: Record<string, string | undefined> = process.env) {
+  const organisation = {
+    legalName: env.PRIVACY_LEGAL_NAME?.trim() || "",
+    entityType: env.PRIVACY_ENTITY_TYPE?.trim() || "",
+    registrationNumber: env.PRIVACY_REGISTRATION_NUMBER?.trim() || "",
+    businessAddress: env.PRIVACY_BUSINESS_ADDRESS?.trim() || "",
+    privacyEmail: env.PRIVACY_CONTACT_EMAIL?.trim() || "",
+    informationOfficer: env.PRIVACY_INFORMATION_OFFICER?.trim() || "",
+  };
+  const missing = Object.entries(organisation).filter(([key, value]) => !value && (key !== "registrationNumber" || organisation.entityType === "company")).map(([key]) => key);
+  if (!["company", "sole-proprietor"].includes(organisation.entityType)) missing.push("validEntityType");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(organisation.privacyEmail)) missing.push("validPrivacyEmail");
+  return { organisation, missing };
+}
+
+// Factual service notice. Never use it to assert that provider contracts/registration exist.
+export function privacyNotice(env: Record<string, string | undefined> = process.env) {
+  const { organisation, missing } = privacyConfiguration(env);
+  return {
+    version: PRIVACY_NOTICE_VERSION,
+    configured: missing.length === 0,
+    organisation,
+    sections: [
+      {
+        heading: "Who handles your information", headingPt: "Quem trata os seus dados",
+        body: "The organisation identified above operates NovaQuill at novaquill.co.za. It is responsible for its account, billing, security and privacy-request records. When a customer decides why and how information in a document is processed, NovaQuill processes it under that customer's lawful instructions as an operator.",
+        bodyPt: "A entidade identificada acima opera a NovaQuill em novaquill.co.za. É responsável pelos registos de contas, facturação, segurança e pedidos de privacidade. Quando um cliente determina as finalidades e os meios do tratamento dos dados de um documento, a NovaQuill trata esses dados como operador, sob as instruções lícitas desse cliente.",
+      },
+      {
+        heading: "Information and purposes", headingPt: "Dados e finalidades",
+        body: "We process account details and authentication identifiers to provide the service you request; subscription and payment references to administer billing; and limited operational records to protect accounts and enforce usage limits. Optional saved signatures require your affirmative choice. Rights-request information is used to assess and respond to your request. Account and paid-service processing supports the requested contract; security processing protects legitimate interests; records required by law support legal obligations. Optional signature storage uses your affirmative choice. Where consent is the basis, you can withdraw it for future processing without making past lawful processing unlawful. Signing is not conditional on marketing consent.",
+        bodyPt: "Tratamos dados de conta e identificadores de autenticação para prestar o serviço solicitado; referências de subscrição e pagamento para gerir a facturação; e registos operacionais limitados para proteger contas e aplicar os limites de utilização. Guardar uma assinatura exige uma escolha afirmativa. Os dados dos pedidos de privacidade são usados para analisar e responder ao pedido. Os dados de conta e do serviço pago apoiam o contrato solicitado; a segurança protege interesses legítimos; os registos exigidos por lei apoiam obrigações legais. Guardar uma assinatura depende da sua escolha afirmativa. Quando a base é o consentimento, pode retirá-lo para o futuro sem tornar ilícito o tratamento anterior. A assinatura não depende de consentimento para marketing.",
+      },
+      {
+        heading: "Documents and signatures", headingPt: "Documentos e assinaturas",
+        body: "Editing and PDF finalisation take place in your browser. A temporary browser draft preserves your work across sign-in. In the existing Pro download flow, the signed PDF is also saved to your account's cloud storage. Reusable signatures are saved only when you choose to save them. Choosing a saved signature and placing it on a document remain deliberate actions. Removing a reusable signature does not alter PDFs signed previously. You must have authority to process other people's information in uploaded documents.",
+        bodyPt: "A edição e a finalização do PDF ocorrem no seu navegador. Um rascunho temporário conserva o trabalho durante o início de sessão. No fluxo de descarga do plano Pro, o PDF assinado também é guardado no armazenamento em nuvem da sua conta. As assinaturas reutilizáveis só são guardadas por sua escolha. Escolher uma assinatura e colocá-la num documento são acções deliberadas. Eliminar uma assinatura reutilizável não altera os PDFs já assinados. Deve ter autorização para tratar os dados de terceiros contidos nos documentos carregados.",
+      },
+      {
+        heading: "Service providers and transfers", headingPt: "Prestadores e transferências",
+        body: "Vercel hosts the application. Cloudinary stores encrypted cloud PDFs. The configured PostgreSQL provider stores account, signature and privacy records; the configured Redis provider supports rate limits. Google or Apple receive authentication information when you choose their sign-in option. PayFast handles payment processing. Cloud services can involve recipients outside South Africa, including their support and subprocessors. The provider/transfer register identifies the destination, applicable section 72 ground and onward safeguards for the actual account; those deployment-specific entries remain subject to confirmation before publication. A South African domain does not mean all processing occurs in South Africa. Our app does not supply documents or signatures to unrelated advertising or AI-training services.",
+        bodyPt: "A Vercel aloja a aplicação. A Cloudinary guarda os PDFs cifrados na nuvem. O prestador PostgreSQL configurado guarda registos de contas, assinaturas e privacidade; o prestador Redis suporta os limites de pedidos. A Google ou a Apple recebem dados de autenticação quando escolhe essa opção. A PayFast processa pagamentos. Os serviços de nuvem podem envolver destinatários fora da África do Sul, incluindo apoio e suboperadores. O inventário identifica destino, base aplicável da secção 72 e salvaguardas para a conta real; estes dados ainda exigem confirmação antes da publicação. Um domínio sul-africano não significa que todo o tratamento ocorre na África do Sul. A aplicação não fornece documentos ou assinaturas a serviços alheios de publicidade ou treino de IA.",
+      },
+      {
+        heading: "Retention and protection", headingPt: "Conservação e protecção",
+        body: "You can remove saved signatures and cloud documents using the account controls. Account deletion attempts to remove account-owned stored files before completing the database deletion, and reports a retryable error if cleanup fails. Browser drafts expire after 24 hours when next loaded and are cleared when the app observes sign-out or an account change. Operational security logs and closed privacy requests follow the configured retention schedule, with holds preventing scheduled deletion. Billing records and provider backups require their own documented retention basis. No universal lifetime is imposed on signed agreements. Access controls and application encryption are used; backup encryption and provider disposal must be verified separately.",
+        bodyPt: "Pode eliminar assinaturas guardadas e documentos na nuvem através da conta. A eliminação da conta tenta remover os ficheiros antes de concluir a eliminação na base de dados e apresenta um erro que permite tentar novamente se a limpeza falhar. Os rascunhos expiram após 24 horas no carregamento seguinte e são limpos quando a aplicação detecta a saída ou a mudança de conta. Os registos de segurança e os pedidos encerrados seguem o prazo configurado; uma suspensão de eliminação impede a limpeza automática. A facturação e as cópias de segurança exigem bases de conservação próprias. Não é imposto um prazo universal aos acordos assinados. São usados controlos de acesso e cifragem na aplicação; a protecção e eliminação das cópias de segurança devem ser verificadas separadamente.",
+      },
+      {
+        heading: "Your rights and complaints", headingPt: "Os seus direitos e reclamações",
+        body: "Use the free form below to request access, correction, objection or deletion without creating an account. Account holders can also export their records and manage deletion in Dashboard → Advanced account controls. We verify identity proportionately before releasing or changing information, assess any lawful limitation, and provide a written outcome. Requests involving a customer's documents may require that responsible party's instructions. You can complain to the Information Regulator through inforegulator.org.za or eservices.inforegulator.org.za. The PAIA manual describes formal access procedures.",
+        bodyPt: "Use o formulário gratuito abaixo para pedir acesso, correcção, oposição ou eliminação sem criar uma conta. Os titulares de contas também podem exportar os seus registos e gerir a eliminação em Painel → Controlos avançados da conta. Verificamos a identidade de forma proporcional antes de divulgar ou alterar dados, analisamos as limitações legais e fornecemos uma resposta escrita. Os pedidos relativos a documentos de clientes podem exigir instruções do responsável pelo tratamento. Pode reclamar junto do Information Regulator através de inforegulator.org.za ou eservices.inforegulator.org.za. O manual PAIA explica os procedimentos formais de acesso.",
+      },
+      {
+        heading: "What you need to provide", headingPt: "Dados necessários e opcionais",
+        body: "An email and password are required for password registration; a display name is optional. Selected Google/Apple sign-in supplies the identifiers and profile information the provider releases, such as name and email; we do not receive that provider password. An account is required for the download quota and optional saved signatures. You can decline reusable signature storage and still sign. A public privacy request needs a contact email and enough detail to understand it, otherwise we may be unable to respond or verify the request. Do not send passwords, complete card numbers or unnecessary ID copies.",
+        bodyPt: "O registo por palavra-passe exige e-mail e palavra-passe; o nome é opcional. O início de sessão Google/Apple fornece os identificadores e dados de perfil divulgados pelo prestador, como nome e e-mail; não recebemos a palavra-passe desse prestador. A conta é necessária para a quota de descargas e assinaturas guardadas opcionais. Pode recusar guardar a assinatura e continuar a assinar. Um pedido público de privacidade exige e-mail de contacto e informação suficiente; sem isso podemos não conseguir responder ou verificar o pedido. Não envie palavras-passe, números completos de cartão ou cópias de identificação desnecessárias.",
+      },
+      {
+        heading: "Technical records, access and disclosure", headingPt: "Registos técnicos, acesso e divulgação",
+        body: "The application counts only selected action names, without document contents in the counter. Hosting and abuse-prevention services still receive technical request information, including IP addresses; we do not describe all logs as anonymous. Staff access to stored information must be limited to justified support, security, rights handling or legal duties, under confidentiality and access restrictions. We may disclose information where lawfully required, assessing authority and limiting the disclosure. This is not permission for routine staff inspection or unrestricted sharing of documents. No solely automated decision producing legal or similarly significant effects is part of the current document-editing workflow.",
+        bodyPt: "A aplicação conta apenas acções seleccionadas, sem conteúdos de documentos no contador. O alojamento e a prevenção de abuso recebem dados técnicos, incluindo IP; não descrevemos todos os registos como anónimos. O acesso do pessoal deve limitar-se ao apoio justificado, segurança, direitos ou obrigações legais, com confidencialidade e restrições. Podemos divulgar dados quando legalmente exigido, verificando os poderes e limitando a divulgação. Isto não autoriza inspecção habitual ou partilha irrestrita de documentos. O fluxo actual de edição não inclui decisões exclusivamente automatizadas com efeitos jurídicos ou igualmente significativos.",
+      },
+      {
+        heading: "Children and sensitive documents", headingPt: "Crianças e documentos sensíveis",
+        body: "The service is not directed to children. Anyone processing a child's information or special personal information must have the specific lawful authority and safeguards required for that information; accepting general terms is not a substitute. A saved signature image is personal information, but the app does not analyse handwriting behaviour to identify a person. Contact the privacy channel if information was supplied without the necessary authority. We assess the request and any lawful retention need rather than promising automatic deletion of every signed agreement.",
+        bodyPt: "O serviço não se destina a crianças. Quem trata dados de crianças ou dados pessoais especiais deve ter a autorização e as salvaguardas específicas exigidas; aceitar termos gerais não as substitui. A imagem de uma assinatura é um dado pessoal, mas a aplicação não analisa o comportamento da escrita para identificar alguém. Contacte o canal de privacidade se os dados foram fornecidos sem autorização necessária. Avaliaremos o pedido e a conservação legalmente justificada, sem prometer eliminar automaticamente todos os acordos assinados.",
+      },
+      {
+        heading: "Incidents, browser storage and updates", headingPt: "Incidentes, armazenamento e actualizações",
+        body: "Report suspected disclosure or signature misuse through the privacy contact or form below. We assess and contain incidents and make legally required notifications according to our responsible-party/operator role; no universal 72-hour POPIA deadline is promised. The cookies and browser-storage policy explains sign-in cookies, temporary device drafts and clearing storage. Changes to purposes, recipients or these notices require review and appropriate notice; new consent is obtained where required. A revised notice does not silently authorise unrelated reuse of existing documents.",
+        bodyPt: "Comunique suspeitas de divulgação ou uso indevido de assinaturas pelo contacto ou formulário abaixo. Avaliamos e contemos incidentes e efectuamos as notificações exigidas conforme o papel de responsável ou operador; não afirmamos um prazo POPIA universal de 72 horas. A política de cookies e armazenamento explica sessões, rascunhos e limpeza de dados. Alterações de finalidades, destinatários ou avisos exigem análise e informação adequada; será obtido novo consentimento quando exigido. Uma revisão não autoriza silenciosamente reutilizações alheias de documentos existentes.",
+      },
+    ],
+  };
+}

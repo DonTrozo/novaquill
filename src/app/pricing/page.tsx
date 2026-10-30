@@ -24,6 +24,7 @@ export default function PricingPage() {
     <div className="max-w-6xl mx-auto px-6 py-12">
       <h1 className="text-2xl font-semibold mb-2">{t("Pricing")}</h1>
       <p className="mb-8 max-w-2xl text-foreground/70">{t("Start with 3 free documents per month. Upgrade for unlimited signing, cloud document storage and priority support. Annual Pro gives the same features at a lower effective monthly price.")}</p>
+      <p className="mb-6 text-sm text-foreground/70">{t("Pro plans renew automatically. PayFast charges the rand amount shown at checkout.")}{" "}<Link href="/subscription-policy" className="underline">{t("Read the subscription, cancellation and refund policy")}</Link>{" · "}<Link href="/terms" className="underline">{t("Terms of Service")}</Link></p>
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="rounded-lg border border-foreground/15 p-6">
           <div className="text-xl font-medium">{t("Free")}</div>

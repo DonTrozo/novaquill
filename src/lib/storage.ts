@@ -45,7 +45,7 @@ export async function saveUserPdf(
 export async function readFileAbsolute(absPath: string): Promise<Buffer> {
   if (absPath.startsWith("cloudinary:")) {
     const payload = await readCloudinaryRaw(absPath);
-    return decryptBuffer(payload);
+    return decryptBuffer(payload, absPath.startsWith("cloudinary:authenticated:"));
   }
 
   const payload = await fs.readFile(absPath);
@@ -60,7 +60,8 @@ export async function deleteFileAbsolute(absPath: string): Promise<void> {
     }
 
     await fs.unlink(absPath);
-  } catch {
-    // Best-effort cleanup only; database deletes should not fail because blob cleanup failed.
+  } catch (error) {
+    // A missing local file is already deleted; every other failure must remain retryable.
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
 }

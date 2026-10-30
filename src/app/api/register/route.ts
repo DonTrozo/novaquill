@@ -1,3 +1,4 @@
+import { readLimitedJson, RequestBodyError } from "@/lib/limitedJson";
 import { prisma } from "@/lib/prisma";
 import { hash } from "bcryptjs";
 import { isAllowedOrigin, rateLimitOk } from "@/lib/guard";
@@ -15,7 +16,9 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ error: "Rate limit" }), { status: 429 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as unknown;
+  let body: unknown;
+  try { body = await readLimitedJson(request, 16_384); }
+  catch (error) { return new Response("Invalid registration request", { status: error instanceof RequestBodyError ? error.status : 400 }); }
   const { name, email, password } = (body ?? {}) as { name?: string; email?: string; password?: string };
 
   const emailNorm = typeof email === "string" ? normalizeEmail(email) : "";
@@ -32,6 +35,9 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ error: "Password must be at least 8 characters" }), { status: 400 });
   }
 
+  if (passwordStr.length > 4096 || nameStr.length > 100) {
+    return new Response(JSON.stringify({ error: "Invalid registration details" }), { status: 400 });
+  }
   const existing = await prisma.user.findUnique({ where: { email: emailNorm } });
   if (existing) {
     return new Response(JSON.stringify({ error: "User already exists" }), { status: 409 });

@@ -22,6 +22,7 @@ model User {
   sessions      Session[]
   documents     Document[]
   savedSignatures SavedSignature[]
+  privacyRequests PrivacyRequest[]
 
   // Subscription and usage tracking
   subscription  SubscriptionStatus @default(FREE)
@@ -120,3 +121,35 @@ model PayfastEvent {
 }
 
 
+
+// Operational security evidence only: never document contents, signature pixels, IPs or tokens.
+model SecurityEvent {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  targetId  String?
+  digest    String?
+  retentionHold Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([createdAt])
+}
+
+model PrivacyRequest {
+  id               String   @id @default(cuid())
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind             String
+  encryptedMessage Bytes
+  encryptedContact Bytes?
+  retentionHold    Boolean @default(false)
+  status           String   @default("OPEN")
+  createdAt        DateTime @default(now())
+  resolvedAt       DateTime?
+  notifiedAt       DateTime?
+  encryptedOutcome Bytes?
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}

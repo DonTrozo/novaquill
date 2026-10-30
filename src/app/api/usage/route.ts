@@ -8,10 +8,10 @@ import { FREE_DOCUMENT_LIMIT, reserveDocumentCredit, usageMonth } from "@/lib/si
 export async function GET() {
 	// Lightweight rate limit for anonymous polling
 	const session = await getServerSession(authOptions);
-	if (!session?.user?.email) {
+	if (!session?.user?.id) {
 		return new Response(JSON.stringify({ subscription: "ANON", used: 0, limit: 0 }), { status: 200 });
 	}
-	const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+	const user = await prisma.user.findUnique({ where: { id: session.user.id } });
 	if (!user) return new Response("Not found", { status: 404 });
 	const isPro = user.subscription === "PRO";
 	const currentYm = usageMonth();
@@ -30,10 +30,10 @@ export async function POST(request: Request) {
 		return new Response(JSON.stringify({ error: "Rate limit" }), { status: 429 });
 	}
 	const session = await getServerSession(authOptions);
-	if (!session?.user?.email) {
+	if (!session?.user?.id) {
 		return new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401 });
 	}
-	const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+	const user = await prisma.user.findUnique({ where: { id: session.user.id } });
 	if (!user) return new Response("Not found", { status: 404 });
 
 	// Additional per-user rate limit to prevent repeated increments (double-clicks, retries, abuse)

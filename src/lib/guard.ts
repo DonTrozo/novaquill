@@ -11,7 +11,8 @@ try {
 } catch {}
 
 // In-memory fallback
-const recent: Record<string, number[]> = {};
+const recent: Record<string, number[]> = Object.create(null);
+const MAX_KEYS = 10_000;
 const MAX_ENTRIES = 1000; // Prevent memory growth
 
 export async function rateLimitOk(key: string, limit = 20, perMs = 60_000): Promise<boolean> {
@@ -26,6 +27,10 @@ export async function rateLimitOk(key: string, limit = 20, perMs = 60_000): Prom
 	}
 	// In-memory fallback
 	const now = Date.now();
+	if (!recent[key] && Object.keys(recent).length >= MAX_KEYS) {
+    cleanupRateLimits();
+    if (Object.keys(recent).length >= MAX_KEYS) return false;
+  }
 	const arr = recent[key] ||= [];
 	while (arr.length && now - arr[0] > perMs) arr.shift();
 	if (arr.length >= limit) return false;
@@ -49,7 +54,7 @@ export function cleanupRateLimits(): void {
 }
 
 if (typeof window === "undefined") {
-	setInterval(cleanupRateLimits, 60 * 60 * 1000);
+	setInterval(cleanupRateLimits, 60 * 60 * 1000).unref?.();
 }
 
 

@@ -14,6 +14,16 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
 	async headers() {
 		return [
+      {
+        source: "/api/:path*",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "CDN-Cache-Control", value: "no-store" },
+          { key: "Vercel-CDN-Cache-Control", value: "no-store" },
+          { key: "Pragma", value: "no-cache" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+        ],
+      },
 			{
 				source: "/:path*",
 				headers: securityHeaders,

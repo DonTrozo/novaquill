@@ -144,7 +144,7 @@ export default function SignatureTools({ onSignature, drawingEnabled = true }: {
   const [typed, setTyped] = useState("");
   const [font, setFont] = useState("cursive");
   const [name, setName] = useState("");
-  const [saveForFuture, setSaveForFuture] = useState(true);
+  const [saveForFuture, setSaveForFuture] = useState(false);
   const [strokeCount, setStrokeCount] = useState(0);
   const [redoStrokeCount, setRedoStrokeCount] = useState(0);
   const [savedSignatures, setSavedSignatures] = useState<SavedSignature[]>([]);
@@ -215,7 +215,7 @@ export default function SignatureTools({ onSignature, drawingEnabled = true }: {
     const response = await fetch("/api/signatures", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dataUrl, name: trimmedName || undefined }),
+      body: JSON.stringify({ dataUrl, name: trimmedName || undefined, saveForFuture: true }),
     });
     if (!response.ok) throw new Error("Signature is ready to use, but could not be saved for next time. Try saving it again later.");
     const payload = (await response.json()) as { signature: SavedSignature };

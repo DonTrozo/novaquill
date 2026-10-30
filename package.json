@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "compliance:check": "node --experimental-strip-types scripts/privacy-release-check.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
@@ -26,6 +28,7 @@
     "react-dom": "19.1.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",

@@ -23,13 +23,13 @@ export async function GET(
   }
 
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
+  if (!session?.user?.id) {
     const base = process.env.NEXTAUTH_URL || "http://localhost:3000";
     const login = new URL(`/login`, base);
     login.searchParams.set("next", `/api/subscribe/${rawPlan}`);
     return Response.redirect(login.toString(), 302);
   }
-  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   const env: "sandbox" | "live" = (process.env.PAYFAST_ENV as "sandbox" | "live") === "live" ? "live" : "sandbox";

@@ -28,3 +28,20 @@ test('sign-in and registration return to the editor without allowing external re
   assert.equal(authReturnPath('/sign'), '/sign');
   for (const value of [null, 'https://evil.example', '//evil.example', '/\\evil.example']) assert.equal(authReturnPath(value), '/dashboard');
 });
+
+test('resumed drafts bind to an account and are unavailable after another account signs in', async () => {
+  const file = new File(['%PDF-private'], 'private.pdf');
+  await saveSigningDraft(file, {});
+  const resumed = await loadSigningDraft('account-a');
+  assert.equal(resumed.ownerId, 'account-a');
+  assert.equal((await loadSigningDraft('account-a')).file.name, 'private.pdf');
+  assert.equal(await loadSigningDraft('account-b'), null);
+  await saveSigningDraft(file, {}, 'account-a');
+  assert.equal(await loadSigningDraft(null), null);
+});
+
+test('simultaneous accounts cannot both claim an anonymous draft', async () => {
+  await saveSigningDraft(new File(['%PDF-private'], 'private.pdf'), {});
+  const [first, second] = await Promise.all([loadSigningDraft('account-a'), loadSigningDraft('account-b')]);
+  assert.equal(first.ownerId, 'account-a'); assert.equal(second, null);
+});

@@ -61,7 +61,9 @@ export default function RegisterPage() {
           required
         />
         {error && <div className="text-sm text-red-600">{t(error)}</div>}
+        <p className="text-xs text-foreground/65">{t("Review the Terms of Service before creating your account.")}{" "}<a href="/terms" className="underline">{t("Terms of Service")}</a></p>
         <button className="rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white">{t("Register")}</button>
+        <p className="text-xs text-foreground/65">{t("Account details are used for access, subscriptions and security. Read how we handle your information.")}{" "}<a href="/privacy" className="underline">{t("Privacy Policy")}</a></p>
       </form>
     </div>
   );

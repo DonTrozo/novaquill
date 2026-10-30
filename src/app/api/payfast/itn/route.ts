@@ -89,7 +89,10 @@ export async function POST(req: NextRequest) {
   }
   try {
     await prisma.payfastEvent.create({
-      data: { pfPaymentId, payload: params },
+      data: { pfPaymentId, payload: {
+        userId: userIdFromCustom || checkoutReference?.userId || null,
+        paymentStatus, plan, grossAmountCents, currency: "ZAR",
+      } },
     });
   } catch {
     // Likely duplicate (unique constraint); treat as idempotent success

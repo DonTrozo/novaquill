@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { v2 as cloudinary } from "cloudinary";
 
 function required(name: string): string {
@@ -29,9 +30,9 @@ export function assertStorageConfigured(): void {
   }
 }
 
-export function makeCloudinaryPublicId(userId: string, filename: string): string {
-  const safeName = filename.replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/\.pdf$/i, "") || "document";
-  return `novaquill/documents/${userId}/${Date.now()}_${safeName}`;
+export function makeCloudinaryPublicId(userId: string, _filename: string): string {
+  void _filename; // Filenames may contain personal information; never put them in provider object keys.
+  return `novaquill/documents/${userId}/${randomUUID()}.bin`;
 }
 
 export async function uploadCloudinaryRaw(publicId: string, body: Buffer): Promise<string> {
@@ -40,19 +41,23 @@ export async function uploadCloudinaryRaw(publicId: string, body: Buffer): Promi
   const result = await cloudinary.uploader.upload(dataUri, {
     public_id: publicId,
     resource_type: "raw",
+    type: "authenticated",
     overwrite: false,
     unique_filename: false,
   });
-  return `cloudinary:${result.public_id}`;
+  return `cloudinary:authenticated:${result.public_id}`;
 }
 
 export async function readCloudinaryRaw(storagePath: string): Promise<Buffer> {
   configure();
-  const publicId = storagePath.replace(/^cloudinary:/, "");
-  const resource = await cloudinary.api.resource(publicId, { resource_type: "raw" });
-  const url = resource.secure_url || resource.url;
-  if (!url) throw new Error("Cloudinary resource URL is missing");
-
+  const authenticated = storagePath.startsWith("cloudinary:authenticated:");
+  const publicId = storagePath.replace(/^cloudinary:(authenticated:)?/, "");
+  // Keep old encrypted uploads readable; only new uploads use authenticated delivery.
+  const url = authenticated ? cloudinary.utils.private_download_url(publicId, "bin", {
+    resource_type: "raw", type: "authenticated",
+    expires_at: Math.floor(Date.now() / 1000) + 60,
+  }) : (await cloudinary.api.resource(publicId, { resource_type: "raw" })).secure_url;
+  if (typeof url !== "string" || !url.startsWith("https://")) throw new Error("Invalid stored document URL");
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) throw new Error(`Failed to read Cloudinary document: ${response.status}`);
   return Buffer.from(await response.arrayBuffer());
@@ -60,6 +65,10 @@ export async function readCloudinaryRaw(storagePath: string): Promise<Buffer> {
 
 export async function deleteCloudinaryRaw(storagePath: string): Promise<void> {
   configure();
-  const publicId = storagePath.replace(/^cloudinary:/, "");
-  await cloudinary.uploader.destroy(publicId, { resource_type: "raw", invalidate: true });
+  const authenticated = storagePath.startsWith("cloudinary:authenticated:");
+  const publicId = storagePath.replace(/^cloudinary:(authenticated:)?/, "");
+  const result = await cloudinary.uploader.destroy(publicId, {
+    resource_type: "raw", type: authenticated ? "authenticated" : "upload", invalidate: true,
+  });
+  if (result.result !== "ok" && result.result !== "not found") throw new Error("Stored document deletion failed");
 }

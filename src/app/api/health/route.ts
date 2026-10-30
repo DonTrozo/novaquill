@@ -6,9 +6,8 @@ export async function GET() {
   try {
     await prisma.$queryRaw`SELECT 1`;
     details.db = "ok";
-  } catch (e) {
+  } catch {
     details.db = "error";
-    details.dbError = e instanceof Error ? e.message : String(e);
     return new Response(JSON.stringify({ status: "unhealthy", ...details }), {
       status: 503,
       headers: { "Content-Type": "application/json" },
@@ -26,9 +25,8 @@ export async function GET() {
       await redis.ping();
       await redis.quit();
       details.redis = "ok";
-    } catch (e) {
+    } catch {
       details.redis = "error";
-      details.redisError = e instanceof Error ? e.message : String(e);
       return new Response(JSON.stringify({ status: "unhealthy", ...details }), {
         status: 503,
         headers: { "Content-Type": "application/json" },

@@ -135,6 +135,7 @@ export default function HomePage() {
             </div>
           </div>
 
+          <p className="mt-3 text-xs text-foreground/65">{t("Editing happens in your browser. Pro downloads also save an encrypted PDF to your account.")}{" "}<a href="/privacy" className="underline">{t("Privacy Policy")}</a></p>
           <div className="mt-4"><SigningAllowanceNotice compact /></div>
           {error && (
             <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">

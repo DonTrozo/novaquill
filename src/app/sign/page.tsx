@@ -188,7 +188,7 @@ function SigningEditor() {
       }
       const dataUrl = imageOfInk(inkStrokes.filter((stroke) => stroke.page === page && inkGroupId(stroke) === editableInkGroup));
       if (!dataUrl) throw new Error("Draw a signature on this page first.");
-      const response = await fetch("/api/signatures", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataUrl, name: "Document signature" }) });
+      const response = await fetch("/api/signatures", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataUrl, name: "Document signature", saveForFuture: true }) });
       if (response.status === 409) throw new Error("Your saved signatures are full. Remove one from Saved signatures and try again.");
       if (!response.ok) throw new Error("Could not save for next time. Your signature is still on this document.");
       setSaveInkMessage("Saved for next time.");

@@ -1,3 +1,5 @@
+import { recordSecurityEvent } from "@/lib/securityAudit";
+import { readLimitedJson, RequestBodyError } from "@/lib/limitedJson";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -14,8 +16,8 @@ const MAX_NAME_LENGTH = 80;
 
 async function requireUser() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.email) return null;
-  return prisma.user.findUnique({ where: { email: session.user.email } });
+  if (!session?.user?.id) return null;
+  return prisma.user.findUnique({ where: { id: session.user.id } });
 }
 
 export async function GET(request: Request) {
@@ -37,6 +39,7 @@ export async function GET(request: Request) {
     createdAt: row.createdAt.toISOString(),
   }));
 
+  await recordSecurityEvent("signature.listed", user.id);
   return new Response(JSON.stringify({ signatures }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
@@ -54,8 +57,13 @@ export async function POST(request: Request) {
   if (!(await rateLimitOk(`sig:create:user:${user.id}`, 40, 60_000))) return new Response("Rate limit", { status: 429 });
   if (!(await rateLimitOk(`sig:create:ip:${ip}`, 120, 60_000))) return new Response("Rate limit", { status: 429 });
 
-  const body = (await request.json().catch(() => null)) as { name?: string; dataUrl?: string } | null;
-  if (!body?.dataUrl) return new Response("Bad Request", { status: 400 });
+  let body: { name?: unknown; dataUrl?: unknown; saveForFuture?: unknown } | null;
+  try { body = await readLimitedJson(request, 3 * 1024 * 1024 + 1024) as typeof body; }
+  catch (error) { return new Response("Invalid signature request", { status: error instanceof RequestBodyError ? error.status : 400 }); }
+  if (typeof body?.dataUrl !== "string") return new Response("Bad Request", { status: 400 });
+
+  if (body.saveForFuture !== true) return new Response("Explicit signature storage choice required", { status: 400 });
+  if (body.name !== undefined && typeof body.name !== "string") return new Response("Invalid name", { status: 400 });
 
   const validation = validateSignatureDataUrl(body.dataUrl);
   if (!validation.ok) {
@@ -71,6 +79,7 @@ export async function POST(request: Request) {
   });
 
   if (existing) {
+    await recordSecurityEvent("signature.saved.explicit-v1", user.id, existing.id);
     return new Response(
       JSON.stringify({
         signature: {
@@ -89,7 +98,7 @@ export async function POST(request: Request) {
     return new Response(`Maximum ${MAX_SIGNATURES_PER_USER} signatures allowed`, { status: 409 });
   }
 
-  const trimmedName = body.name?.trim() || "";
+  const trimmedName = (typeof body.name === "string" ? body.name.trim() : "") || "";
   const safeName = (trimmedName || `Signature ${existingCount + 1}`).slice(0, MAX_NAME_LENGTH);
 
   const created = await prisma.savedSignature.create({
@@ -103,6 +112,7 @@ export async function POST(request: Request) {
     select: { id: true, name: true, encryptedPayload: true, createdAt: true },
   });
 
+  await recordSecurityEvent("signature.saved.explicit-v1", user.id, created.id);
   return new Response(
     JSON.stringify({
       signature: {
@@ -136,8 +146,12 @@ export async function DELETE(request: Request) {
     select: { id: true, userId: true },
   });
   if (!signature) return new Response("Not found", { status: 404 });
-  if (signature.userId !== user.id) return new Response("Forbidden", { status: 403 });
+  if (signature.userId !== user.id) {
+    await recordSecurityEvent("signature.denied", user.id, id);
+    return new Response("Forbidden", { status: 403 });
+  }
 
   await prisma.savedSignature.delete({ where: { id } });
+  await recordSecurityEvent("signature.deleted", user.id, id);
   return new Response(null, { status: 204 });
 }

@@ -2,6 +2,7 @@
 
 import { useLanguage } from "@/context/LanguageContext";
 
+import PrivacyRequestForm from "@/components/PrivacyRequestForm";
 import SigningAllowanceNotice from "@/components/SigningAllowanceNotice";
 
 import { useUpload } from "@/context/UploadContext";
@@ -241,7 +242,8 @@ export default function DashboardPage() {
                   <button
                     className="rounded-md border px-2 py-1 text-sm"
                     onClick={async () => {
-                      await fetch(`/api/documents/${d.id}`, { method: "DELETE" });
+                      const response = await fetch(`/api/documents/${d.id}`, { method: "DELETE" });
+                      if (!response.ok) { setUploadError("Could not delete the stored document. Please try again."); return; }
                       setDocs((prev) => prev.filter((x) => x.id !== d.id));
                     }}
                   >{t("Delete")}</button>
@@ -279,6 +281,7 @@ export default function DashboardPage() {
                   <button className="rounded-md border px-3 py-2 text-sm text-red-600">{t("Delete account")}</button>
                 </form>
               </div>
+              <PrivacyRequestForm />
               <div className="text-xs text-foreground/60 mt-2">{t("See also:")}{" "}<a className="underline" href="/privacy">{t("Privacy Policy")}</a> •{" "}
                 <a className="underline" href="/terms">{t("Terms")}</a>
               </div>

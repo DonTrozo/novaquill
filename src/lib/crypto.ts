@@ -22,11 +22,13 @@ export function encryptBuffer(plaintext: Buffer): Buffer {
   return Buffer.concat([Buffer.from("NG1"), iv, tag, enc]);
 }
 
-export function decryptBuffer(payload: Buffer): Buffer {
+export function decryptBuffer(payload: Buffer, requireEncrypted = false): Buffer {
   if (payload.slice(0, 3).toString() !== "NG1") {
-    // Not encrypted by us; return as-is
+    if (requireEncrypted) throw new Error("Encrypted payload is invalid");
+    // Compatibility for legacy documents; new authenticated storage requires encryption.
     return payload;
   }
+  if (payload.length < 31) throw new Error("Encrypted payload is truncated");
   const key = getKey();
   const iv = payload.slice(3, 15);
   const tag = payload.slice(15, 31);

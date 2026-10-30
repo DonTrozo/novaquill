@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/internal/privacy-retention",
+      "schedule": "17 2 * * *"
+    }
+  ],
+  "buildCommand": "npx prisma migrate deploy && npm run build"
+}

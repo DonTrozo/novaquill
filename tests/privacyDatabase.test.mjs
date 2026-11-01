@@ -17,6 +17,7 @@ await db.query('INSERT INTO "Document" (id,"userId",filename,"mimeType",size,pat
 await db.exec(await migration('20261022190000_add_privacy_safeguards'));
 await db.exec(await migration('20261022193000_public_privacy_requests_and_holds'));
 await db.exec(await migration('20261030170000_billing_cancellation'));
+await db.exec(await migration('20261101120000_terms_acceptance'));
 
 test('the additive migration preserves existing users and documents', async () => {
   assert.equal((await db.query('SELECT * FROM "User"')).rows.length, 2);
@@ -84,4 +85,12 @@ test('account foreign-key cascades remove only the deleted account records', asy
 test('deleting an account detaches outstanding billing cases for justified response handling',async()=>{
   const item=(await db.query('SELECT "userId",status FROM "BillingRequest" WHERE id=$1',['billing-account'])).rows[0];
   assert.equal(item.userId,null);assert.equal(item.status,'OPEN');
+});
+
+test('terms migration never backfills acceptance and requires paired evidence', async () => {
+  const user = (await db.query('SELECT "termsAcceptedVersion", "termsAcceptedAt" FROM "User" WHERE id=$1', ['owner-b'])).rows[0];
+  assert.equal(user.termsAcceptedVersion, null); assert.equal(user.termsAcceptedAt, null);
+  await assert.rejects(db.query('UPDATE "User" SET "termsAcceptedVersion"=$1 WHERE id=$2', ['forged', 'owner-b']));
+  await db.query('UPDATE "User" SET "termsAcceptedVersion"=$1, "termsAcceptedAt"=NOW() WHERE id=$2', ['2026-11-01.1', 'owner-b']);
+  assert.equal((await db.query('SELECT "termsAcceptedVersion" FROM "User" WHERE id=$1', ['owner-b'])).rows[0].termsAcceptedVersion, '2026-11-01.1');
 });

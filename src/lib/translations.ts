@@ -1,5 +1,12 @@
 // Portuguese interface copy. Document contents and signature text are never translated.
 export const portuguese: Record<string, string> = {
+  "I agree to the Terms of Service.": "Aceito os Termos de Serviço.",
+  "Please review and accept the current Terms of Service.": "Consulte e aceite os Termos de Serviço actuais.",
+  "Please review the current Terms of Service. Acceptance is separate from marketing consent.": "Consulte os Termos de Serviço actuais. A aceitação é independente do consentimento para marketing.",
+  "Could not confirm terms acceptance. Please retry or reload the page.": "Não foi possível confirmar a aceitação dos termos. Tente novamente ou recarregue a página.",
+  "New here? Review the Terms of Service and Privacy Policy before continuing with Google or Apple.": "Primeira visita? Consulte os Termos de Serviço e a Política de Privacidade antes de continuar com Google ou Apple.",
+  "Cloud storage has no published total quota; per-file technical limits apply. Priority support prioritises Pro service enquiries and does not include a guaranteed response time or permanent archival.": "O armazenamento na nuvem não tem quota total publicada; aplicam-se limites técnicos por ficheiro. O apoio prioritário dá prioridade aos pedidos de serviço Pro e não inclui um prazo de resposta garantido nem arquivo permanente.",
+
   "Pro plans renew automatically. PayFast charges the rand amount shown at checkout.": "Os planos Pro renovam-se automaticamente. A PayFast cobra o valor em rands apresentado no pagamento.",
   "Read the subscription, cancellation and refund policy": "Consulte a política de subscrições, cancelamento e reembolsos",
   "Review the Terms of Service before creating your account.": "Consulte os Termos de Serviço antes de criar a conta.",

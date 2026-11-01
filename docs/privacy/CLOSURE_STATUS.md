@@ -53,3 +53,7 @@ POLICY_GAP_FIXES_20261030.md records cancellation/paid-period enforcement, publi
 ## Operator identity supplied — 1 November 2026
 
 The user confirmed that NovaQuill is an Artobyte product and supplied its COR14.3. OPERATOR_IDENTITY_VERIFICATION.md records the verified public corporate particulars and business contacts, now used consistently by the public policies. Prior entries requesting the legal entity/name/number/office/contact are superseded by that record. Information Officer confirmation/registration and the separate provider/operational evidence remain outstanding; those are not established by a company certificate.
+
+## Policy improvements — 1 November 2026 follow-up
+
+POLICY_IMPROVEMENTS_20261101.md records bilingual refund/retention and PAIA improvements, preserved storage/support entitlements, explicit account acceptance with an additive migration and readable version archive. This follow-up is prepared on `improvements/legal-policies-20261101`; no main merge, deployment or production migration has occurred. Existing/OAuth acceptance is offered through a nonblocking notice and is not inferred. Provider/officer/contract/backup evidence and production verification remain outstanding. Historical deployment statements above describe earlier work and do not prove current production state.

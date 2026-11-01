@@ -70,3 +70,32 @@ test('the downloadable contractual archive matches the exact bilingual policy ar
   assert.equal(archive.version, LEGAL_POLICY_VERSION);
   for (const key of ['termsSections', 'subscriptionSections', 'browserStorageSections']) assert.deepEqual(archive[key], policies[key]);
 });
+
+test('PayFast checkout displays full policy text with the amount and requires an unchecked acknowledgement', async () => {
+  const retention = await loadSource(source('lib/retentionPolicy.ts'));
+  const privacy = await loadSource(source('lib/privacyNotice.ts'), {'./retentionPolicy':retention});
+  const review = await loadSource(source('lib/checkoutReview.ts'), {'./legalPolicies':policies,'./legalVersion':version,'./privacyNotice':privacy});
+  const payfast = await loadSource(source('lib/payfast.ts'));
+  const html = payfast.buildForm({amount:'180.00',name_first:'<script>bad</script>'},'https://sandbox.payfast.co.za/eng/process',review.checkoutReview('180.00','monthly','en'));
+  assert.match(html,/ZAR 180.00 \/ month/);assert.match(html,/<input type="checkbox" required>/);assert.equal(html.includes(' checked'),false);
+  assert.equal(html.includes('onload='),false);assert.match(html,/within seven days after conclusion/);assert.match(html,/Refunds and payment disputes/);assert.match(html,/Digital delivery and service activation/);
+  assert.equal(html.includes('<script>bad</script>'),false);assert.match(html,/merchant account verification is pending/);
+  const pt=payfast.buildForm({},'https://sandbox.payfast.co.za/eng/process',review.checkoutReview('180.00','annual','pt'));
+  assert.match(pt,/ZAR 180.00 \/ ano/);assert.match(pt,/nos sete dias após/);
+});
+
+test('live checkout stays closed until explicit activation even when merchant credentials exist', async () => {
+  const saved = Object.fromEntries(['PAYFAST_ENV','PAYFAST_PAYMENTS_ENABLED','PAYFAST_MERCHANT_ID','PAYFAST_MERCHANT_KEY','PAYFAST_PASSPHRASE'].map(k=>[k,process.env[k]]));
+  let fxCalls=0;
+  try {
+    Object.assign(process.env,{PAYFAST_ENV:'live',PAYFAST_PAYMENTS_ENABLED:'false',PAYFAST_MERCHANT_ID:'fixture',PAYFAST_MERCHANT_KEY:'fixture',PAYFAST_PASSPHRASE:'fixture'});
+    const subscription=await loadSource(source('lib/subscription.ts'));
+    const payfast=await loadSource(source('lib/payfast.ts'));
+    const route=await loadSource(source('app/api/subscribe/[plan]/route.ts'),{
+      'next-auth':{getServerSession:async()=>({user:{id:'owner-a'}})},'@/lib/auth':{authOptions:{}},'@/lib/prisma':{prisma:{user:{findUnique:async()=>({id:'owner-a',subscription:'FREE'})}}},
+      '@/lib/payfast':payfast,'@/lib/subscription':subscription,'@/lib/fx':{eurToZar:async()=>{fxCalls++;return 180;}},'@/lib/checkoutReview':{checkoutReview:()=>{throw new Error('must not build payment');}},'@/lib/requestLocale':{requestLocale:async()=> 'en'},
+    });
+    const response=await route.GET(new Request('https://www.novaquill.co.za/api/subscribe/monthly'),{params:Promise.resolve({plan:'monthly'})});
+    assert.equal(response.status,503);assert.match(await response.text(),/awaiting merchant approval/);assert.equal(fxCalls,0);
+  } finally { for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;} }
+});

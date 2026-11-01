@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { buildForm, buildSignature, getPayfastEndpoint } from "@/lib/payfast";
+import { checkoutReview } from "@/lib/checkoutReview";
+import { requestLocale } from "@/lib/requestLocale";
 import { eurToZar } from "@/lib/fx";
 import { prisma } from "@/lib/prisma";
 import {
@@ -34,6 +36,7 @@ export async function GET(
   if (user.subscription === "PRO" && !user.subscriptionCancelledAt) return new Response("Manage or cancel your existing subscription in the dashboard before starting another recurring payment.", { status: 409 });
 
   const env: "sandbox" | "live" = (process.env.PAYFAST_ENV as "sandbox" | "live") === "live" ? "live" : "sandbox";
+  if (env === "live" && process.env.PAYFAST_PAYMENTS_ENABLED !== "true") return new Response("Paid checkout is awaiting merchant approval and activation. No payment has been started.", { status: 503 });
   const merchant_id = process.env.PAYFAST_MERCHANT_ID || "";
   const merchant_key = process.env.PAYFAST_MERCHANT_KEY || "";
   const passphrase = process.env.PAYFAST_PASSPHRASE || undefined;
@@ -80,7 +83,7 @@ export async function GET(
 
   const signature = buildSignature(paramsMap, passphrase);
   const action = getPayfastEndpoint(env);
-  const html = buildForm({ ...paramsMap, signature }, action);
+  const html = buildForm({ ...paramsMap, signature }, action, checkoutReview(amount, plan, await requestLocale()));
   return new Response(html, { 
     status: 200, 
     headers: { "Content-Type": "text/html; charset=utf-8" } 

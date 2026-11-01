@@ -61,3 +61,7 @@ POLICY_IMPROVEMENTS_20261101.md records bilingual refund/retention and PAIA impr
 ## Vercel authorisation completed — 1 November 2026
 
 The owner completed team authorisation. VERCEL_VERIFICATION_20261101.md supersedes earlier access-blocked statements: the production deployment and environment metadata can now be read. US East application functions are confirmed; the live retention handler returns 503 Maintenance not configured. Provider contracts, database/backup locations and operational completion remain open. Public notice improvements are prepared on PR #9; no production change or compliance closure is asserted.
+
+## PayFast review preparation and owner confirmations — 1 November 2026
+
+The owner confirmed merchant verification pending, no Cloudinary/Redis accounts yet and no Information Officer registration. OWNER_SETUP_AND_PAYFAST_RELEASE.md records concrete setup fields, provider requirements, exact retention proposal and release gates. Contractual revision 2026-11-01.2 adds digital delivery, payment security, pending-payment status and a full checkout review with affirmative acknowledgement; live payments remain gated. A 10-page review PDF was prepared from the source text. Automatic approval review rejected production retention configuration; no settings or cleanup were activated. Main remains unchanged.

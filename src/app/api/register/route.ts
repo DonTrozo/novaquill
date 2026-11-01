@@ -1,4 +1,5 @@
 import { readLimitedJson, RequestBodyError } from "@/lib/limitedJson";
+import { LEGAL_POLICY_VERSION } from "@/lib/legalVersion";
 import { prisma } from "@/lib/prisma";
 import { hash } from "bcryptjs";
 import { isAllowedOrigin, rateLimitOk } from "@/lib/guard";
@@ -19,7 +20,10 @@ export async function POST(request: Request) {
   let body: unknown;
   try { body = await readLimitedJson(request, 16_384); }
   catch (error) { return new Response("Invalid registration request", { status: error instanceof RequestBodyError ? error.status : 400 }); }
-  const { name, email, password } = (body ?? {}) as { name?: string; email?: string; password?: string };
+  const { name, email, password, acceptTerms, termsVersion } = (body ?? {}) as { name?: string; email?: string; password?: string; acceptTerms?: unknown; termsVersion?: unknown };
+  if (acceptTerms !== true || termsVersion !== LEGAL_POLICY_VERSION) {
+    return new Response(JSON.stringify({ error: "Please review and accept the current Terms of Service." }), { status: 400 });
+  }
 
   const emailNorm = typeof email === "string" ? normalizeEmail(email) : "";
   const passwordStr = typeof password === "string" ? password : "";
@@ -45,7 +49,7 @@ export async function POST(request: Request) {
 
   const passwordHash = await hash(passwordStr, 12);
   const user = await prisma.user.create({
-    data: { name: nameStr || null, email: emailNorm, passwordHash },
+    data: { name: nameStr || null, email: emailNorm, passwordHash, termsAcceptedVersion: LEGAL_POLICY_VERSION, termsAcceptedAt: new Date() },
   });
   return new Response(JSON.stringify({ id: user.id, email: user.email }), { status: 201 });
 }

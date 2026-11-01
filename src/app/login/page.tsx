@@ -81,6 +81,7 @@ function LoginForm() {
         {error && <div className="text-sm text-red-600">{t(error)}</div>}
         <button className="rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white">{t("Log in")}</button>
       </form>
+      <p className="mt-4 text-xs text-foreground/65">{t("New here? Review the Terms of Service and Privacy Policy before continuing with Google or Apple.")}{" "}<a href="/terms" className="underline">{t("Terms of Service")}</a>{" · "}<a href="/privacy" className="underline">{t("Privacy Policy")}</a></p>
       <div className="mt-4 grid gap-2">
         {oauthErrorMessage && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{t(oauthErrorMessage)}</div>}
         <button onClick={() => signIn("google", { callbackUrl })} className="rounded-md px-4 py-2 border border-foreground/20">{t("Continue with Google")}</button>

@@ -223,6 +223,42 @@ test('retention requires a secret and approved periods, and cannot delete open r
   } finally { for (const [key, value] of Object.entries(prior)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
 
+test('retention preview is authenticated, counts only and rejects ambiguous preview values', async () => {
+  const prior = { CRON_SECRET: process.env.CRON_SECRET, SECURITY_LOG_RETENTION_DAYS: process.env.SECURITY_LOG_RETENTION_DAYS, PRIVACY_REQUEST_RETENTION_DAYS: process.env.PRIVACY_REQUEST_RETENTION_DAYS };
+  const actions = []; const secret = randomBytes(32).toString('hex');
+  const prisma = { $transaction: jobs => Promise.all(jobs) };
+  for (const model of ['securityEvent', 'privacyRequest', 'billingRequest']) prisma[model] = {
+    count: args => { actions.push(['count', model, args]); return Promise.resolve(7); },
+    deleteMany: args => { actions.push(['delete', model, args]); return Promise.resolve({ count: 7 }); },
+  };
+  try {
+    Object.assign(process.env, { CRON_SECRET: secret, SECURITY_LOG_RETENTION_DAYS: '90', PRIVACY_REQUEST_RETENTION_DAYS: '365' });
+    const route = await loadSource(url('app/api/internal/privacy-retention/route.ts'), { '@/lib/prisma': { prisma }, '@/lib/retentionPolicy': retention });
+    const req = (query, authorization = `Bearer ${secret}`) => new Request(`https://www.novaquill.co.za/api/internal/privacy-retention${query}`, { headers: { authorization } });
+    assert.equal((await route.GET(req('?dryRun=true', 'Bearer wrong'))).status, 401);
+    for (const value of ['', 'false', 'TRUE', '1']) assert.equal((await route.GET(req(`?dryRun=${value}`))).status, 400);
+    assert.deepEqual(actions, []);
+    const response = await route.GET(req('?dryRun=true'));
+    const body = await response.json();
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal(body.dryRun, true); assert.equal(body.eligibleSecurityEvents, 7);
+    assert.equal(body.eligibleClosedRequests, 7); assert.equal(body.eligibleClosedBillingRequests, 7);
+    assert.equal(actions.length, 3); assert.ok(actions.every(([op]) => op === 'count'));
+    for (const [, model, args] of actions) {
+      assert.equal(args.where.retentionHold, false);
+      if (model !== 'securityEvent') { assert.equal(args.where.status, 'CLOSED'); assert.ok(args.where.resolvedAt.lt instanceof Date); }
+    }
+    const preview = actions.splice(0);
+    await route.GET(req(''));
+    assert.ok(actions.every(([op]) => op === 'delete'));
+    for (let i = 0; i < actions.length; i++) {
+      assert.equal(actions[i][1], preview[i][1]);
+      const field = i === 0 ? 'createdAt' : 'resolvedAt';
+      assert.ok(Math.abs(actions[i][2].where[field].lt - preview[i][2].where[field].lt) < 1000);
+    }
+  } finally { for (const [key, value] of Object.entries(prior)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+});
+
 test('authentication carries the immutable token subject, checks verified Google email and throttles guessing', async () => {
   const checks = []; let permitted = true;
   const auth = await loadSource(url('lib/auth.ts'), {

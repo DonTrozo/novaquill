@@ -37,3 +37,26 @@ test('evidence completeness requires confirmed company details and named dated r
   evidence.provider_contract_coverage.sha256 = 'not-a-document-hash';
   assert.equal(privacyClosure(evidence, env).find((item) => item.name === 'Third-party processing').readyForReview, false);
 });
+
+test('the privacy notice distinguishes inactive providers and cleanup from configured settings', () => {
+  const inactive = notice.privacyNotice({});
+  const body = inactive.sections.map(s => s.body).join(' ');
+  const pt = inactive.sections.map(s => s.bodyPt).join(' ');
+  assert.match(body, /Cloud document saving through Cloudinary is not currently configured/);
+  assert.match(body, /No Redis connection is configured/);
+  assert.match(body, /Online paid checkout is not currently configured/);
+  assert.match(body, /Automatic cleanup is not currently configured/);
+  assert.match(pt, /A limpeza automática não está actualmente configurada/);
+  const partial = notice.privacyNotice({ CLOUDINARY_CLOUD_NAME: 'fixture', CRON_SECRET: 'too-short' });
+  assert.match(partial.sections.map(s => s.body).join(' '), /Automatic cleanup is not currently configured/);
+  assert.match(partial.sections.map(s => s.body).join(' '), /Cloud document saving through Cloudinary is not currently configured/);
+});
+
+test('provider settings change disclosures without exposing credentials or claiming verified operations', () => {
+  const configured = notice.privacyNotice({ ...env, CLOUDINARY_CLOUD_NAME: 'SECRET-CLOUD', CLOUDINARY_API_KEY: 'SECRET-KEY', CLOUDINARY_API_SECRET: 'SECRET-TOKEN', PAYFAST_MERCHANT_ID: 'SECRET-MERCHANT', PAYFAST_MERCHANT_KEY: 'SECRET-PAYMENT-KEY', PAYFAST_PASSPHRASE: 'SECRET-PHRASE' });
+  const body = configured.sections.map(s => s.body).join(' ');
+  assert.match(body, /Cloudinary settings are present/); assert.match(body, /Redis settings are present/);
+  assert.match(body, /Payment settings are present/); assert.match(body, /Automatic cleanup settings are present/);
+  assert.match(body, /successful execution and monitoring still require operational verification/);
+  for (const secret of ['SECRET-CLOUD','SECRET-KEY','SECRET-TOKEN','SECRET-MERCHANT','SECRET-PAYMENT-KEY','SECRET-PHRASE', env.DATABASE_URL, env.CRON_SECRET]) assert.equal(JSON.stringify(configured).includes(secret), false);
+});

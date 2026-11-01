@@ -5,6 +5,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { track } from "@/lib/track";
+import { LEGAL_POLICY_VERSION } from "@/lib/legalVersion";
 import { authReturnPath } from "@/lib/authReturn";
 
 export default function RegisterPage() {
@@ -12,6 +13,7 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
@@ -21,7 +23,7 @@ export default function RegisterPage() {
     const res = await fetch("/api/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, acceptTerms, termsVersion: LEGAL_POLICY_VERSION }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -61,7 +63,10 @@ export default function RegisterPage() {
           required
         />
         {error && <div className="text-sm text-red-600">{t(error)}</div>}
-        <p className="text-xs text-foreground/65">{t("Review the Terms of Service before creating your account.")}{" "}<a href="/terms" className="underline">{t("Terms of Service")}</a></p>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" required checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} className="mt-1" />
+          <span>{t("I agree to the Terms of Service.")}{" "}<a href="/terms" target="_blank" rel="noopener noreferrer" className="underline">{t("Terms of Service")}</a>{" · "}{LEGAL_POLICY_VERSION}</span>
+        </label>
         <button className="rounded-md px-4 py-2 bg-[color:var(--color-accent)] text-white">{t("Register")}</button>
         <p className="text-xs text-foreground/65">{t("Account details are used for access, subscriptions and security. Read how we handle your information.")}{" "}<a href="/privacy" className="underline">{t("Privacy Policy")}</a></p>
       </form>

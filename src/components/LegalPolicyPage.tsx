@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { privacyConfiguration } from "@/lib/privacyNotice";
 import { requestLocale } from "@/lib/requestLocale";
-import { LEGAL_POLICY_VERSION, type LegalSection } from "@/lib/legalPolicies";
+import { type LegalSection } from "@/lib/legalPolicies";
+import { LEGAL_POLICY_DATE, LEGAL_POLICY_VERSION } from "@/lib/legalVersion";
 
 type Props = { title: string; titlePt: string; sections: LegalSection[] };
 export default async function LegalPolicyPage({ title, titlePt, sections }: Props) {
@@ -10,7 +11,8 @@ export default async function LegalPolicyPage({ title, titlePt, sections }: Prop
   return <main className="mx-auto max-w-5xl space-y-7 px-6 py-12">
     <header className="space-y-3">
       <h1 className="text-2xl font-semibold">{pt ? titlePt : title}</h1>
-      <p className="text-sm text-foreground/65">{pt ? "Última actualização" : "Last updated"}: {LEGAL_POLICY_VERSION}</p>
+      <p className="text-sm text-foreground/65">{pt ? "Última actualização" : "Last updated"}: {LEGAL_POLICY_DATE} · {LEGAL_POLICY_VERSION}</p>
+      <a className="text-sm underline" href={`/legal/${LEGAL_POLICY_VERSION}.html`}>{pt ? "Guardar esta versão dos termos e políticas" : "Save this version of the terms and policies"}</a>
       {missing.length > 0 && <p role="status" className="rounded-md border border-foreground/20 p-3 text-sm">{pt ? "Os dados do responsável pela informação ainda precisam de confirmação. Os dados empresariais não constituem prova de registo ou de aprovação completa de conformidade." : "Information Officer details still need confirmation. Corporate particulars are not evidence of officer registration or complete compliance sign-off."}</p>}
       {org.legalName && <address className="space-y-1 text-sm not-italic text-foreground/80">
         <p>{pt ? "NovaQuill — um produto da Artobyte" : "NovaQuill — an Artobyte product"}</p>

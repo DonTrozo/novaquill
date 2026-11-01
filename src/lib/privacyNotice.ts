@@ -1,17 +1,32 @@
 import { retentionPeriods } from "./retentionPolicy";
-export const PRIVACY_NOTICE_VERSION = "2026-10-30";
+export const PRIVACY_NOTICE_VERSION = "2026-11-01";
+
+// Public corporate particulars only. The user's COR14.3 confirms the registered
+// name, number, office and director; the user confirmed NovaQuill is its product.
+// Email/telephone are Artobyte's published business contacts, verified 1 Nov 2026.
+// Never add the certificate's personal ID, tax number or residential particulars.
+const VERIFIED_OPERATOR = {
+  legalName: "ARTOBYTE",
+  entityType: "company",
+  registrationNumber: "2024/359197/07",
+  businessAddress: "8 Malgas Street\nBirch Acres\nKempton Park\nGauteng\n1618\nSouth Africa",
+  privacyEmail: "info@artobyte.com",
+  telephone: "+27 68 497 1592",
+  placeOfRegistration: "South Africa",
+  officeBearers: "Trozo Joel Antonio (Director)",
+};
 
 export function privacyConfiguration(env: Record<string, string | undefined> = process.env) {
   const organisation = {
-    legalName: env.PRIVACY_LEGAL_NAME?.trim() || "",
-    entityType: env.PRIVACY_ENTITY_TYPE?.trim() || "",
-    registrationNumber: env.PRIVACY_REGISTRATION_NUMBER?.trim() || "",
-    businessAddress: env.PRIVACY_BUSINESS_ADDRESS?.trim() || "",
-    privacyEmail: env.PRIVACY_CONTACT_EMAIL?.trim() || "",
+    legalName: env.PRIVACY_LEGAL_NAME?.trim() || VERIFIED_OPERATOR.legalName,
+    entityType: env.PRIVACY_ENTITY_TYPE?.trim() || VERIFIED_OPERATOR.entityType,
+    registrationNumber: env.PRIVACY_REGISTRATION_NUMBER?.trim() || VERIFIED_OPERATOR.registrationNumber,
+    businessAddress: env.PRIVACY_BUSINESS_ADDRESS?.trim() || VERIFIED_OPERATOR.businessAddress,
+    privacyEmail: env.PRIVACY_CONTACT_EMAIL?.trim() || VERIFIED_OPERATOR.privacyEmail,
     informationOfficer: env.PRIVACY_INFORMATION_OFFICER?.trim() || "",
-    telephone: env.PRIVACY_CONTACT_PHONE?.trim() || "",
-    placeOfRegistration: env.PRIVACY_PLACE_OF_REGISTRATION?.trim() || "",
-    officeBearers: env.PRIVACY_OFFICE_BEARERS?.trim() || "",
+    telephone: env.PRIVACY_CONTACT_PHONE?.trim() || VERIFIED_OPERATOR.telephone,
+    placeOfRegistration: env.PRIVACY_PLACE_OF_REGISTRATION?.trim() || VERIFIED_OPERATOR.placeOfRegistration,
+    officeBearers: env.PRIVACY_OFFICE_BEARERS?.trim() || VERIFIED_OPERATOR.officeBearers,
   };
   const missing = Object.entries(organisation).filter(([key, value]) => !value && (!["registrationNumber", "placeOfRegistration", "officeBearers"].includes(key) || organisation.entityType === "company")).map(([key]) => key);
   if (!["company", "sole-proprietor"].includes(organisation.entityType)) missing.push("validEntityType");
@@ -31,8 +46,8 @@ export function privacyNotice(env: Record<string, string | undefined> = process.
     sections: [
       {
         heading: "Who handles your information", headingPt: "Quem trata os seus dados",
-        body: "NovaQuill operates at novaquill.co.za. Its legal operator and public contact particulars appear above when confirmed; missing particulars remain an outstanding disclosure requirement. It is responsible for its account, billing, security and privacy-request records. When a customer decides why and how information in a document is processed, NovaQuill processes it under that customer's lawful instructions as an operator.",
-        bodyPt: "A NovaQuill opera em novaquill.co.za. Os dados do operador legal e contactos públicos constam acima quando confirmados; os dados em falta continuam a constituir uma obrigação de informação por cumprir. É responsável pelos registos de contas, facturação, segurança e pedidos de privacidade. Quando um cliente determina as finalidades e os meios do tratamento dos dados de um documento, a NovaQuill trata esses dados como operador, sob as instruções lícitas desse cliente.",
+        body: "NovaQuill is an Artobyte product at novaquill.co.za. The legal operator is the private company identified above. The listed email and telephone are Artobyte business contacts, not evidence that an Information Officer has been registered. It is responsible for its account, billing, security and privacy-request records. When a customer decides why and how information in a document is processed, NovaQuill processes it under that customer's lawful instructions as an operator.",
+        bodyPt: "A NovaQuill é um produto da Artobyte em novaquill.co.za. O operador legal é a sociedade privada identificada acima. O e-mail e telefone indicados são contactos empresariais da Artobyte e não comprovam o registo de um responsável pela informação. É responsável pelos registos de contas, facturação, segurança e pedidos de privacidade. Quando um cliente determina as finalidades e os meios do tratamento dos dados de um documento, a NovaQuill trata esses dados como operador, sob as instruções lícitas desse cliente.",
       },
       {
         heading: "Information and purposes", headingPt: "Dados e finalidades",

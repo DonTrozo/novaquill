@@ -4,7 +4,7 @@ Status: unexecuted draft. It is not evidence that either party has accepted it. 
 
 ## Parties and scope
 
-Service operator: [confirmed legal entity], trading as NovaQuill, registration [where applicable], business address [confirmed address]. Customer responsible party: [customer legal name, identity/registration and address]. Authorised representatives and privacy/security contacts: [actual details]. Effective date: [actual agreed date].
+Service operator: ARTOBYTE, a private company registered in South Africa under number 2024/359197/07, operating NovaQuill as an Artobyte product. Registered office/address for notices: 8 Malgas Street, Birch Acres, Kempton Park, Gauteng, 1618, South Africa. Business contact: info@artobyte.com; +27 68 497 1592. Customer responsible party: [customer legal name, identity/registration and address]. Authorised representatives and privacy/security contacts: [actual details]. Effective date: [actual agreed date].
 
 This agreement governs personal information the customer lawfully entrusts to NovaQuill for the specified document-editing, electronic-signature and account-storage services. For customer-controlled document purposes, the customer is responsible party and NovaQuill is operator. Each party remains responsible for information and purposes it independently determines, including its own business/account administration. The underlying commercial service terms continue to govern commercial matters except where inconsistent with mandatory data-protection duties or these processing protections.
 

@@ -22,12 +22,12 @@ export default function PrivacyNotice({ initialNotice }: { initialNotice?: Notic
   const org = notice.organisation;
   return <div className="space-y-5 text-sm text-foreground/80">
     <p>{t("Privacy notice version")}: {notice.version}</p>
-    {!notice.configured && <p role="status">{t("Company details must be completed before this notice is published. You can still submit a privacy request below.")}</p>}
+    {!notice.configured && <p role="status">{locale === "pt" ? "Os dados do responsável pela informação ainda precisam de confirmação. Pode apresentar um pedido de privacidade pelo formulário abaixo ou pelo contacto empresarial indicado." : "Information Officer details still need confirmation. You can submit a privacy request using the form below or the listed business contact."}</p>}
     {org.legalName && <address className="not-italic">
       <p className="font-medium">{org.legalName}{org.registrationNumber ? ` · ${org.registrationNumber}` : ""}</p>
       <p className="whitespace-pre-line">{org.businessAddress}</p>
       {org.telephone && <p>{org.telephone}</p>}
-      <p>{t("Information Officer")}: {org.informationOfficer}</p>
+      <p>{t("Information Officer")}: {org.informationOfficer || (locale === "pt" ? "Confirmação pendente" : "Confirmation pending")}</p>
       {org.privacyEmail && <a className="underline" href={`mailto:${org.privacyEmail}`}>{org.privacyEmail}</a>}
     </address>}
     {notice.sections.map((section) => <section key={section.heading}>

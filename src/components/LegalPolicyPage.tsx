@@ -11,9 +11,12 @@ export default async function LegalPolicyPage({ title, titlePt, sections }: Prop
     <header className="space-y-3">
       <h1 className="text-2xl font-semibold">{pt ? titlePt : title}</h1>
       <p className="text-sm text-foreground/65">{pt ? "Última actualização" : "Last updated"}: {LEGAL_POLICY_VERSION}</p>
-      {missing.length > 0 && <p role="status" className="rounded-md border border-foreground/20 p-3 text-sm">{pt ? "Os dados legais e de contacto do prestador devem ser confirmados antes da publicação. Esta versão não confirma aprovação ou procedimentos operacionais concluídos." : "The provider's legal and contact details must be confirmed before publication. This version does not establish approval or completed operational procedures."}</p>}
+      {missing.length > 0 && <p role="status" className="rounded-md border border-foreground/20 p-3 text-sm">{pt ? "Os dados do responsável pela informação ainda precisam de confirmação. Os dados empresariais não constituem prova de registo ou de aprovação completa de conformidade." : "Information Officer details still need confirmation. Corporate particulars are not evidence of officer registration or complete compliance sign-off."}</p>}
       {org.legalName && <address className="space-y-1 text-sm not-italic text-foreground/80">
+        <p>{pt ? "NovaQuill — um produto da Artobyte" : "NovaQuill — an Artobyte product"}</p>
         <p className="font-medium">{org.legalName}{org.registrationNumber ? ` · ${org.registrationNumber}` : ""}</p>
+        <p>{pt ? "Sociedade privada" : "Private company"}</p>
+        <p className="text-foreground/65">{pt ? "Sede registada / endereço para notificações" : "Registered office / address for notices"}</p>
         <p className="whitespace-pre-line">{org.businessAddress}</p>
         {org.telephone && <p>{org.telephone}</p>}
         {org.placeOfRegistration && <p>{pt ? "Local de registo" : "Place of registration"}: {org.placeOfRegistration}</p>}

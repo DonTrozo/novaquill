@@ -30,9 +30,9 @@ export default async function PaiaPage() {
   ];
   return <main className="mx-auto max-w-5xl space-y-6 px-6 py-12 text-sm">
     <h1 className="text-2xl font-semibold">{pt ? "Manual PAIA" : "PAIA manual"}</h1>
-    <p>{pt ? "Última actualização" : "Last updated"}: 2026-10-30</p>
-    {missing.length > 0 && <p role="status" className="rounded-md border p-3">{pt ? "Os dados legais, contactos e responsável pela informação ainda precisam de confirmação. O formulário gratuito de privacidade está disponível entretanto." : "Legal identity, contact and Information Officer particulars still need confirmation. The free privacy-request channel remains available meanwhile."}</p>}
-    {org.legalName && <address className="not-italic"><p>{org.legalName} {org.registrationNumber}</p><p>{org.businessAddress}</p><p>{org.telephone}</p><p>{org.informationOfficer}</p>{org.privacyEmail && <a className="underline" href={`mailto:${org.privacyEmail}`}>{org.privacyEmail}</a>}</address>}
+    <p>{pt ? "Última actualização" : "Last updated"}: 2026-11-01</p>
+    {missing.length > 0 && <p role="status" className="rounded-md border p-3">{pt ? "Os dados e contactos empresariais da Artobyte constam abaixo. Os dados/registo do responsável pela informação ainda precisam de confirmação; o formulário e contacto empresarial mantêm-se disponíveis." : "Artobyte corporate particulars and business contacts are provided below. Information Officer details/registration still need confirmation; the privacy form and business contact remain available."}</p>}
+    {org.legalName && <address className="not-italic"><p>{pt ? "NovaQuill — um produto da Artobyte" : "NovaQuill — an Artobyte product"}</p><p>{org.legalName} · {org.registrationNumber}</p><p>{pt ? "Sociedade privada; sede registada" : "Private company; registered office"}</p><p>{org.businessAddress}</p><p>{org.telephone}</p><p>{pt ? "Responsável pela informação" : "Information Officer"}: {org.informationOfficer || (pt ? "Confirmação pendente" : "Confirmation pending")}</p>{org.privacyEmail && <a className="underline" href={`mailto:${org.privacyEmail}`}>{org.privacyEmail}</a>}</address>}
     <nav className="flex flex-wrap gap-4 underline" aria-label={pt ? "Formulários e apoio" : "Forms and assistance"}>
       <Link href="/privacy">{pt ? "Pedir assistência / dados pessoais" : "Request assistance / personal information"}</Link>
       <a href="https://inforegulator.org.za/wp-content/uploads/2020/07/InfoRegSA-PAIA-Form02-Reg7.pdf">{pt ? "Formulário 2: acesso" : "Form 2: access"}</a>

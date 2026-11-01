@@ -4,7 +4,7 @@ Prepared in terms of section 51 of PAIA, Act 2 of 2000, as amended. Compilation/
 
 ## 1. Entity and contacts
 
-Operating legal name [confirm]; registration number [if company]; NovaQuill trading name; website https://www.novaquill.co.za; business/physical and postal address [confirm]; head/Information Officer [confirm]; registration evidence [record privately]; privacy/PAIA email and appropriate business telephone [confirm]; Deputy Information Officer [if designated]. No person has been appointed or registered by this draft.
+Legal operator: ARTOBYTE, a South African private company, registration 2024/359197/07. NovaQuill is an Artobyte product at https://www.novaquill.co.za. Registered office and postal address: 8 Malgas Street, Birch Acres, Kempton Park, Gauteng, 1618, South Africa. Director: Trozo Joel Antonio. Public business contact: info@artobyte.com; +27 68 497 1592. Information Officer particulars/registration and any delegated duties remain to be confirmed; a director listing is not officer-registration evidence. No person has been appointed or registered by this update.
 
 ## 2. Purpose and guide
 

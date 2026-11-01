@@ -12,6 +12,13 @@ test('public privacy configuration exposes only the explicit public company fiel
   assert.equal(JSON.stringify(response).includes('NEVER-EXPOSE'), false); assert.equal(JSON.stringify(response).includes('PRIVATE-EVIDENCE'), false);
   assert.equal(response.sections.length, 10);
   assert.equal(notice.privacyNotice({}).configured, false);
+  const verified = notice.privacyNotice({});
+  assert.equal(verified.organisation.legalName, 'ARTOBYTE');
+  assert.equal(verified.organisation.registrationNumber, '2024/359197/07');
+  assert.equal(verified.organisation.informationOfficer, '');
+  assert.match(verified.organisation.businessAddress, /8 Malgas Street/);
+  assert.equal(verified.organisation.privacyEmail, 'info@artobyte.com');
+  assert.deepEqual(notice.privacyConfiguration({}).missing, ['informationOfficer']);
 });
 
 test('an evidence checklist cannot close requirements from code completion or boolean ticks', () => {

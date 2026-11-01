@@ -49,3 +49,7 @@ See POLICY_ADAPTATION_REVIEW.md for the original NovaQuill terms, subscription/r
 ## Policy-review follow-up
 
 POLICY_GAP_FIXES_20261030.md records cancellation/paid-period enforcement, public encrypted billing requests, specific shared retention limits, initial-HTML privacy text and expanded PAIA procedures. These changes do not complete the absent company/officer/provider evidence. All ten still require the genuine evidence/sign-off described above. Retention job execution and actual payment-provider account integration must be verified separately from local tests.
+
+## Operator identity supplied — 1 November 2026
+
+The user confirmed that NovaQuill is an Artobyte product and supplied its COR14.3. OPERATOR_IDENTITY_VERIFICATION.md records the verified public corporate particulars and business contacts, now used consistently by the public policies. Prior entries requesting the legal entity/name/number/office/contact are superseded by that record. Information Officer confirmation/registration and the separate provider/operational evidence remain outstanding; those are not established by a company certificate.

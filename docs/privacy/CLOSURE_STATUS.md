@@ -57,3 +57,7 @@ The user confirmed that NovaQuill is an Artobyte product and supplied its COR14.
 ## Policy improvements — 1 November 2026 follow-up
 
 POLICY_IMPROVEMENTS_20261101.md records bilingual refund/retention and PAIA improvements, preserved storage/support entitlements, explicit account acceptance with an additive migration and readable version archive. This follow-up is prepared on `improvements/legal-policies-20261101`; no main merge, deployment or production migration has occurred. Existing/OAuth acceptance is offered through a nonblocking notice and is not inferred. Provider/officer/contract/backup evidence and production verification remain outstanding. Historical deployment statements above describe earlier work and do not prove current production state.
+
+## Vercel authorisation completed — 1 November 2026
+
+The owner completed team authorisation. VERCEL_VERIFICATION_20261101.md supersedes earlier access-blocked statements: the production deployment and environment metadata can now be read. US East application functions are confirmed; the live retention handler returns 503 Maintenance not configured. Provider contracts, database/backup locations and operational completion remain open. Public notice improvements are prepared on PR #9; no production change or compliance closure is asserted.

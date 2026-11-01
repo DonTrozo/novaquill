@@ -37,3 +37,7 @@ Prepared on `improvements/legal-policies-20261101`, based on main commit `3d6754
 - ECTA: https://www.gov.za/documents/electronic-communications-and-transactions-act and consolidated text linked by that government page: https://www.saflii.org/za/legis/consol_act/ecata2002427/ (sections 42 and 44; consolidated extract retrieved in search; full-page retrieval failed).
 
 This record does not close the ten compliance requirements, appoint/register an officer, execute agreements, send correspondence or certify compliance.
+
+## Owner-authorised Vercel follow-up
+
+The earlier Vercel access blocker is resolved. VERCEL_VERIFICATION_20261101.md supersedes that pending access item and records new read-only account/live endpoint evidence, remaining configuration gaps and corrected runtime-aware public disclosures. No production settings or disposal jobs were changed.

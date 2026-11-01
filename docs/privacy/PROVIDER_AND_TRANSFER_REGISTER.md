@@ -4,7 +4,7 @@ Reviewed public primary sources on 22 October 2026. Public documents are candida
 
 ## Current evidence
 
-The source uses Vercel, Cloudinary, PostgreSQL, optional Redis, conditional Google/Apple sign-in and PayFast. The Vercel connector found project `prj_iPaCVakcjepMGi4ePN4K2nFhWJ4w`, team `team_8rp65v9cdqQLvJuG1OA7AKjb` (`dons-projects-5c448127`), then returned 403 when project details and environment metadata were requested. No secret values were requested or decrypted. The scope-specific authorisation tool suggested by the error is not exposed in this session. The existing connection needs access to that team; do not substitute another team's settings.
+The source supports Vercel, Cloudinary, PostgreSQL, optional Redis, conditional Google/Apple sign-in and PayFast. The earlier Vercel 403 blocker was resolved by owner authorisation on 1 November 2026. VERCEL_VERIFICATION_20261101.md records the current account evidence: production main commit and US East function region, project-level configuration gaps, and a live 503 from the unconfigured retention handler. Actual database vendor/region, applicable provider contracts, backup disposal and complete transfer safeguards remain unverified. The earlier public provider review below is candidate contractual evidence, not proof that all supported services are configured or operating.
 
 | Provider | Application data/purpose | Public contract information | Actual-account evidence required |
 | --- | --- | --- | --- |

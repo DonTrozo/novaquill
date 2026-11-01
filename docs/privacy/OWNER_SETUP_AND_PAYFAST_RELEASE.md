@@ -49,3 +49,15 @@ The published intake routes and business contact exist, but actual staffing/moni
 - Confirm database backup/restore and provider contract/transfer evidence; complete customer processing schedules with actual parties, not automatic acceptance of an unfinished draft.
 - Test password and OAuth accounts, two-account file boundaries, saved signatures, export/deletion, public request handling, storage and sandbox payment/cancellation/refund flows. Check real initial EN/PT HTML and readable archives after release.
 - Update final public policies and the PDF when pending facts change, so the merchant copy and published pages agree. PayFast may require live website links as well as a copy; a PDF is not a substitute for that publication.
+
+## Read-only retention preflight added
+
+Before configuring any scheduler secret, an authorised operator can run:
+
+```sh
+node --experimental-strip-types scripts/privacy-retention-preview.mjs
+```
+
+Run only in a restricted environment with the intended database connection and approved retention values already supplied securely. The script issues count queries only: eligible events, closed privacy/billing cases and separate hold totals. It prints no record contents, contact details or database errors. It neither activates cron nor deletes records. Save its timestamped output in the restricted operations case, review holds, and obtain the previously required activation approval. A local fixture run does not establish production counts.
+
+After a separately authorised release and scheduler configuration, the authenticated maintenance endpoint also accepts `?dryRun=true`; it returns eligible counts with no-store caching. Invalid preview values are rejected. A normal scheduler call still performs its existing cleanup, so never omit that parameter when requesting a preview. Preview counts can change before execution. Actual execution, failures and monitoring must still be recorded separately; a preview is not a successful cleanup or monitoring exercise.

@@ -28,6 +28,7 @@ export default function PrivacyNotice({ initialNotice }: { initialNotice?: Notic
       <p className="whitespace-pre-line">{org.businessAddress}</p>
       {org.telephone && <p>{org.telephone}</p>}
       <p>{t("Information Officer")}: {org.informationOfficer || (locale === "pt" ? "Confirmação pendente" : "Confirmation pending")}</p>
+      <p>{locale === "pt" ? "Registo do responsável pela informação" : "Information Officer registration"}: {org.informationOfficerRegistrationNumber} · {locale === "pt" ? "Data de registo" : "Registered"}: {org.informationOfficerRegistrationDate}</p>
       {org.privacyEmail && <a className="underline" href={`mailto:${org.privacyEmail}`}>{org.privacyEmail}</a>}
     </address>}
     {notice.sections.map((section) => <section key={section.heading}>

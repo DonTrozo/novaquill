@@ -11,14 +11,16 @@ test('public privacy configuration exposes only the explicit public company fiel
   assert.equal(response.configured, true); assert.equal(response.organisation.legalName, 'Fixture Company');
   assert.equal(JSON.stringify(response).includes('NEVER-EXPOSE'), false); assert.equal(JSON.stringify(response).includes('PRIVATE-EVIDENCE'), false);
   assert.equal(response.sections.length, 10);
-  assert.equal(notice.privacyNotice({}).configured, false);
+  assert.equal(notice.privacyNotice({}).configured, true);
   const verified = notice.privacyNotice({});
   assert.equal(verified.organisation.legalName, 'ARTOBYTE');
   assert.equal(verified.organisation.registrationNumber, '2024/359197/07');
-  assert.equal(verified.organisation.informationOfficer, '');
+  assert.equal(verified.organisation.informationOfficer, 'Trozo Joel Antonio');
+  assert.equal(verified.organisation.informationOfficerRegistrationNumber, '2026-071295');
+  assert.equal(verified.organisation.informationOfficerRegistrationDate, '2026-11-05');
   assert.match(verified.organisation.businessAddress, /8 Malgas Street/);
   assert.equal(verified.organisation.privacyEmail, 'info@artobyte.com');
-  assert.deepEqual(notice.privacyConfiguration({}).missing, ['informationOfficer']);
+  assert.deepEqual(notice.privacyConfiguration({}).missing, []);
 });
 
 test('an evidence checklist cannot close requirements from code completion or boolean ticks', () => {
@@ -33,7 +35,8 @@ test('evidence completeness requires confirmed company details and named dated r
   const keys = [...new Set(privacyClosure({}, env).flatMap((item) => item.missing))];
   const evidence = Object.fromEntries(keys.map((key) => [key, { reference: `restricted-evidence:${key}`, reviewedBy: 'Fixture Officer', reviewedAt: '2026-10-01T12:00:00Z' }]));
   assert.ok(privacyClosure(evidence, env).every((item) => item.readyForReview));
-  assert.ok(privacyClosure(evidence, {}).every((item) => !item.readyForReview));
+  assert.equal(privacyClosure(evidence, {}).find((item) => item.name === 'Security').readyForReview, false);
+  assert.equal(privacyClosure(evidence, {}).find((item) => item.name === 'Data retention').readyForReview, false);
   evidence.provider_contract_coverage.sha256 = 'not-a-document-hash';
   assert.equal(privacyClosure(evidence, env).find((item) => item.name === 'Third-party processing').readyForReview, false);
 });

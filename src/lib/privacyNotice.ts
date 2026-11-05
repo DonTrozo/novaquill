@@ -1,5 +1,5 @@
 import { retentionPeriods } from "./retentionPolicy";
-export const PRIVACY_NOTICE_VERSION = "2026-11-01.2";
+export const PRIVACY_NOTICE_VERSION = "2026-11-06";
 
 // Public corporate particulars only. The user's COR14.3 confirms the registered
 // name, number, office and director; the user confirmed NovaQuill is its product.
@@ -14,6 +14,10 @@ const VERIFIED_OPERATOR = {
   telephone: "+27 68 497 1592",
   placeOfRegistration: "South Africa",
   officeBearers: "Trozo Joel Antonio (Director)",
+  // Public officer particulars from the supplied Information Regulator certificate.
+  informationOfficer: "Trozo Joel Antonio",
+  informationOfficerRegistrationNumber: "2026-071295",
+  informationOfficerRegistrationDate: "2026-11-05",
 };
 
 export function privacyConfiguration(env: Record<string, string | undefined> = process.env) {
@@ -23,7 +27,9 @@ export function privacyConfiguration(env: Record<string, string | undefined> = p
     registrationNumber: env.PRIVACY_REGISTRATION_NUMBER?.trim() || VERIFIED_OPERATOR.registrationNumber,
     businessAddress: env.PRIVACY_BUSINESS_ADDRESS?.trim() || VERIFIED_OPERATOR.businessAddress,
     privacyEmail: env.PRIVACY_CONTACT_EMAIL?.trim() || VERIFIED_OPERATOR.privacyEmail,
-    informationOfficer: env.PRIVACY_INFORMATION_OFFICER?.trim() || "",
+    informationOfficer: env.PRIVACY_INFORMATION_OFFICER?.trim() || VERIFIED_OPERATOR.informationOfficer,
+    informationOfficerRegistrationNumber: VERIFIED_OPERATOR.informationOfficerRegistrationNumber,
+    informationOfficerRegistrationDate: VERIFIED_OPERATOR.informationOfficerRegistrationDate,
     telephone: env.PRIVACY_CONTACT_PHONE?.trim() || VERIFIED_OPERATOR.telephone,
     placeOfRegistration: env.PRIVACY_PLACE_OF_REGISTRATION?.trim() || VERIFIED_OPERATOR.placeOfRegistration,
     officeBearers: env.PRIVACY_OFFICE_BEARERS?.trim() || VERIFIED_OPERATOR.officeBearers,
@@ -50,8 +56,8 @@ export function privacyNotice(env: Record<string, string | undefined> = process.
     sections: [
       {
         heading: "Who handles your information", headingPt: "Quem trata os seus dados",
-        body: "NovaQuill is an Artobyte product at novaquill.co.za. The legal operator is the private company identified above. The listed email and telephone are Artobyte business contacts, not evidence that an Information Officer has been registered. It is responsible for its account, billing, security and privacy-request records. When a customer decides why and how information in a document is processed, NovaQuill processes it under that customer's lawful instructions as an operator.",
-        bodyPt: "A NovaQuill é um produto da Artobyte em novaquill.co.za. O operador legal é a sociedade privada identificada acima. O e-mail e telefone indicados são contactos empresariais da Artobyte e não comprovam o registo de um responsável pela informação. É responsável pelos registos de contas, facturação, segurança e pedidos de privacidade. Quando um cliente determina as finalidades e os meios do tratamento dos dados de um documento, a NovaQuill trata esses dados como operador, sob as instruções lícitas desse cliente.",
+        body: "NovaQuill is an Artobyte product at novaquill.co.za. The legal operator is the private company identified above. The listed email and telephone are Artobyte privacy and business contacts. It is responsible for its account, billing, security and privacy-request records. When a customer decides why and how information in a document is processed, NovaQuill processes it under that customer's lawful instructions as an operator.",
+        bodyPt: "A NovaQuill é um produto da Artobyte em novaquill.co.za. O operador legal é a sociedade privada identificada acima. O e-mail e telefone indicados são contactos de privacidade e empresariais da Artobyte. É responsável pelos registos de contas, facturação, segurança e pedidos de privacidade. Quando um cliente determina as finalidades e os meios do tratamento dos dados de um documento, a NovaQuill trata esses dados como operador, sob as instruções lícitas desse cliente.",
       },
       {
         heading: "Information and purposes", headingPt: "Dados e finalidades",

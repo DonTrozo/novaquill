@@ -1,10 +1,10 @@
 # NovaQuill PAIA manual — prepared for confirmed entity details and approval
 
-Prepared in terms of section 51 of PAIA, Act 2 of 2000, as amended. Compilation: 22 October 2026. Revised: 1 November 2026. Status: ready for factual completion and officer approval, not an approved publication. The public `/paia` route uses the same confirmed company configuration as the privacy notice; the release check rejects missing identity/evidence.
+Prepared in terms of section 51 of PAIA, Act 2 of 2000, as amended. Compilation: 22 October 2026. Revised: 6 November 2026. Status: ready for factual completion and officer approval, not an approved publication. The public `/paia` route uses the same confirmed company configuration as the privacy notice; the release check rejects missing identity/evidence.
 
 ## 1. Entity and contacts
 
-Legal operator: ARTOBYTE, a South African private company, registration 2024/359197/07. NovaQuill is an Artobyte product at https://www.novaquill.co.za. Registered office and postal address: 8 Malgas Street, Birch Acres, Kempton Park, Gauteng, 1618, South Africa. Director: Trozo Joel Antonio. Public business contact: info@artobyte.com; +27 68 497 1592. Information Officer particulars/registration and any delegated duties remain to be confirmed; a director listing is not officer-registration evidence. No person has been appointed or registered by this update.
+Legal operator: ARTOBYTE, a South African private company, registration 2024/359197/07. NovaQuill is an Artobyte product at https://www.novaquill.co.za. Registered office and postal address: 8 Malgas Street, Birch Acres, Kempton Park, Gauteng, 1618, South Africa. Director: Trozo Joel Antonio. Public business contact: info@artobyte.com; +27 68 497 1592. Registered Information Officer: Trozo Joel Antonio. Information Regulator registration reference: 2026-071295; registration date: 5 November 2026. These particulars are recorded in the owner-supplied Information Officer registration certificate. No deputy appointment or full compliance certification is inferred.
 
 ## 2. Purpose and guide
 

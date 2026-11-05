@@ -23,6 +23,8 @@ export default async function LegalPolicyPage({ title, titlePt, sections }: Prop
         {org.telephone && <p>{org.telephone}</p>}
         {org.placeOfRegistration && <p>{pt ? "Local de registo" : "Place of registration"}: {org.placeOfRegistration}</p>}
         {org.officeBearers && <p>{pt ? "Representantes legais" : "Office bearers"}: {org.officeBearers}</p>}
+        <p>{pt ? "Responsável pela informação" : "Information Officer"}: {org.informationOfficer}</p>
+        <p>{pt ? "Registo do responsável pela informação" : "Information Officer registration"}: {org.informationOfficerRegistrationNumber} · {pt ? "Data de registo" : "Registered"}: {org.informationOfficerRegistrationDate}</p>
         {org.privacyEmail && <p><a className="underline" href={`mailto:${org.privacyEmail}`}>{org.privacyEmail}</a></p>}
       </address>}
       <nav aria-label={pt ? "Documentos legais" : "Legal documents"} className="flex flex-wrap gap-x-5 gap-y-2 text-sm underline">

@@ -82,3 +82,20 @@ test('grid lines made of separate filled rectangles also expose their empty cell
   const { fields } = await detect(await pdf.save());
   assert.equal(fields.filter(field => field.id.startsWith('cell-')).length, 2);
 });
+
+test('offers the blank area after a label printed inside a box', async () => {
+  const pdf = await PDFDocument.create(); const page = pdf.addPage([600, 800]);
+  page.drawRectangle({ x: 50, y: 600, width: 400, height: 30, borderWidth: 1 });
+  page.drawText('Name:', { x: 58, y: 610, size: 11 });
+  const { fields } = await detect(await pdf.save());
+  const field = fields.find(item => item.label === 'Name:');
+  assert.ok(field); assert.ok(field.x > 58 * 1.5);
+  assert.ok(field.width > 250 * 1.5);
+});
+
+test('detects narrow printed cells for short entries', async () => {
+  const pdf = await PDFDocument.create(); const page = pdf.addPage([600, 800]);
+  page.drawRectangle({ x: 50, y: 600, width: 18, height: 20, borderWidth: 1 });
+  const { fields } = await detect(await pdf.save());
+  assert.ok(fields.some(item => item.width === 27 && item.height === 30));
+});

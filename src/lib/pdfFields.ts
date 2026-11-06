@@ -97,7 +97,7 @@ export function detectPdfFields(annotations: Array<Record<string, unknown>>, tex
     else if (op === ops.endPath) { pendingLines = []; pendingBoxes = []; }
   }
   const tolerance = 1.5 * scale;
-  const horizontal = lines.filter((line) => Math.abs(line.y1 - line.y2) <= tolerance && Math.abs(line.x2 - line.x1) > 20 * scale)
+  const horizontal = lines.filter((line) => Math.abs(line.y1 - line.y2) <= tolerance && Math.abs(line.x2 - line.x1) > 5 * scale)
     .map((line) => ({ y: (line.y1 + line.y2) / 2, left: Math.min(line.x1, line.x2), right: Math.max(line.x1, line.x2) }));
   const vertical = lines.filter((line) => Math.abs(line.x1 - line.x2) <= tolerance && Math.abs(line.y2 - line.y1) > 8 * scale)
     .map((line) => ({ x: (line.x1 + line.x2) / 2, top: Math.min(line.y1, line.y2), bottom: Math.max(line.y1, line.y2) }));
@@ -113,7 +113,22 @@ export function detectPdfFields(annotations: Array<Record<string, unknown>>, tex
     label.x + label.displayWidth / 2 > r.x + tolerance && label.x + label.displayWidth / 2 < r.x + r.width - tolerance &&
     label.y - label.fontSize * 0.3 > r.y && label.y - label.fontSize * 0.3 < r.y + r.height);
   const candidateBox = (r: { x: number; y: number; width: number; height: number }, prefix: string) => {
-    if (r.width < 35 * scale || r.height < 8 * scale || r.height > 100 * scale || occupied(r)) return;
+    if (r.width < 12 * scale || r.height < 8 * scale || r.height > 100 * scale) return;
+    if (occupied(r)) {
+      // A printed label inside a box can leave usable space to its right.
+      // Only infer this for a single label row ending in a colon.
+      const inside = labels.filter((label) => label.str.trim() && label.x >= r.x - tolerance &&
+        label.x + label.displayWidth <= r.x + r.width + tolerance &&
+        label.y - label.fontSize * 0.3 > r.y && label.y - label.fontSize * 0.3 < r.y + r.height);
+      const last = inside.toSorted((a, b) => a.x - b.x).at(-1);
+      if (!last || !/:\s*$/.test(last.str) || inside.some((label) => Math.abs(label.y - last.y) > tolerance)) return;
+      const x = last.x + last.displayWidth + 4 * scale;
+      const width = r.x + r.width - x;
+      if (width < 35 * scale) return;
+      add({ id: `label-space-${Math.round(r.x / scale * 10)}-${Math.round(r.y / scale * 10)}`,
+        x, y: r.y, width, height: r.height, label: inside.map((label) => label.str).join(" ") });
+      return;
+    }
     add({ id: `${prefix}-${Math.round(r.x / scale * 10)}-${Math.round(r.y / scale * 10)}`, ...r, label: labelAt(r.x, r.y + r.height * 0.7) || "Text box" });
   };
   // Reconstruct empty table cells even when every border is a separate path.

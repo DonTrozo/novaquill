@@ -2,7 +2,7 @@ import { matchingFont } from "./textLayout";
 
 export type DetectedField = {
   id: string; x: number; y: number; width: number; height: number;
-  label: string; fieldName?: string; value?: string; fontSize?: number; fontName?: string;
+  label: string; fieldName?: string; value?: string; fontSize?: number; fontName?: string; baseline?: number;
 };
 
 type Viewport = { width: number; height: number; convertToViewportPoint: (x: number, y: number) => number[]; convertToViewportRectangle: (rect: number[]) => number[] };
@@ -47,7 +47,7 @@ export function detectPdfFields(annotations: Array<Record<string, unknown>>, tex
     // Locate the blank part of a combined label + underline text run.
     const match = /_{3,}|\.{6,}/.exec(item.str)!;
     const characterWidth = item.displayWidth / item.str.length;
-    add({ id: `blank-${fields.length}`, x: item.x + match.index * characterWidth, y: item.y - 22 * scale, width: match[0].length * characterWidth, height: 22 * scale, label: item.str.slice(0, match.index).trim() || "Fill in text" });
+    add({ id: `blank-${fields.length}`, x: item.x + match.index * characterWidth, y: item.y - 22 * scale, width: match[0].length * characterWidth, height: 22 * scale, baseline: 22 * scale, label: item.str.slice(0, match.index).trim() || "Fill in text" });
   }
   type Segment = { x1: number; y1: number; x2: number; y2: number };
   const lines: Segment[] = [];
@@ -157,7 +157,13 @@ export function detectPdfFields(annotations: Array<Record<string, unknown>>, tex
       const distance = (label: typeof a) => Math.abs(label.y - (field.y + field.height * 0.7)) * 5 + Math.abs(label.x + label.displayWidth - field.x);
       return distance(a) - distance(b);
     })[0];
-    return { ...field, fontSize: Math.min(field.fontSize || nearest?.fontSize || 11 * scale, field.height * 0.75), fontName: field.fontName || nearest?.matchedFont || "Helvetica" };
+    // Rule entries sit on the nearby label's baseline, rather than the centre
+    // of the tall tap target above the rule. Boxes retain centred alignment.
+    const ruleBaseline = field.id.startsWith("line-")
+      ? nearest && Math.abs(nearest.y - (field.y + field.height)) <= 8 * scale
+        ? nearest.y - field.y : field.height - 2 * scale
+      : undefined;
+    return { ...field, baseline: field.baseline ?? ruleBaseline, fontSize: Math.min(field.fontSize || nearest?.fontSize || 11 * scale, field.height * 0.75), fontName: field.fontName || nearest?.matchedFont || "Helvetica" };
   });
 
 }

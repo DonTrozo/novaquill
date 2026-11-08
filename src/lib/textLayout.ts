@@ -2,7 +2,7 @@ import { StandardFontEmbedder, StandardFonts } from "pdf-lib";
 
 export type TextGeometry = {
   text: string; width: number; height: number; fontSize: number;
-  fontName?: string; preferredFontSize?: number; autoFit?: boolean; padding?: number;
+  fontName?: string; preferredFontSize?: number; autoFit?: boolean; padding?: number; baseline?: number;
 };
 
 export function matchingFont(name = "", bold = false, italic = false): string {
@@ -39,12 +39,20 @@ export function layoutText(item: TextGeometry) {
   const ascent = Number(font.font.Ascender ?? font.font.FontBBox[3]) / 1000;
   const descent = Number(font.font.Descender ?? font.font.FontBBox[1]) / 1000;
   const size = item.autoFit ? Math.max(0.01, Math.min(preferred, Math.max(0.01, item.width - padding * 2) / (unitWidth || 1), Math.max(0.01, item.height - padding * 2) / (ascent - descent))) : item.fontSize;
-  const baseline = item.autoFit ? (item.height - (ascent - descent) * size) / 2 + ascent * size : item.height / 2 + size * 0.35;
+  const baseline = item.baseline ?? (item.autoFit ? (item.height - (ascent - descent) * size) / 2 + ascent * size : item.height / 2 + size * 0.35);
   return { size, padding, baseline, textWidth: unitWidth * size, fontName: font.fontName };
 }
 
 export function scaleText<T extends TextGeometry & { x: number; y: number }>(item: T, ratio: number): T {
   return { ...item, x: item.x * ratio, y: item.y * ratio, width: item.width * ratio, height: item.height * ratio, fontSize: item.fontSize * ratio,
     ...(item.preferredFontSize !== undefined ? { preferredFontSize: item.preferredFontSize * ratio } : {}),
-    ...(item.padding !== undefined ? { padding: item.padding * ratio } : {}) };
+    ...(item.padding !== undefined ? { padding: item.padding * ratio } : {}),
+    ...(item.baseline !== undefined ? { baseline: item.baseline * ratio } : {}) };
+}
+
+export function nativeInputBox(layout: { size: number; baseline: number }, metrics: { ascent: number; descent: number } | null) {
+  const ascent = metrics && Number.isFinite(metrics.ascent) ? metrics.ascent : layout.size * 0.8;
+  const descent = metrics && Number.isFinite(metrics.descent) ? metrics.descent : layout.size * 0.2;
+  const height = Math.max(layout.size * 1.4, ascent + descent);
+  return { top: layout.baseline - ascent - (height - ascent - descent) / 2, height };
 }

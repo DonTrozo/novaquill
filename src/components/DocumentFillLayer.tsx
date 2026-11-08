@@ -3,9 +3,9 @@
 import { useLanguage } from "@/context/LanguageContext";
 
 import Image from "next/image";
-import { layoutText, cssFont, type TextGeometry } from "@/lib/textLayout";
+import { layoutText, cssFont, nativeInputBox, type TextGeometry } from "@/lib/textLayout";
 import type { DetectedField } from "@/lib/pdfFields";
-import { type MouseEvent, type PointerEvent, useEffect, useRef, useState } from "react";
+import { type MouseEvent, type PointerEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 export type TextElement = TextGeometry & {
   fieldName?: string;
@@ -211,7 +211,7 @@ export default function DocumentFillLayer({
       data-navigation-surface={!placementMode ? "true" : undefined}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
-      onPointerCancel={endDrag}
+      onPointerCancel={() => { scrolled.current = true; endDrag(); }}
       onPointerDownCapture={(event) => { pointerStart.current = { x: event.clientX, y: event.clientY }; scrolled.current = false; }}
       onPointerMoveCapture={(event) => {
         const start = pointerStart.current;
@@ -219,8 +219,8 @@ export default function DocumentFillLayer({
       }}
       onClick={handleCanvasClick}
     >
-      {(activeTool === "text" || activeTool === "select") && detectedFields.filter((field) => !textElements.some((item) => item.id === `field-${page}-${field.id}` || (item.page === page && item.detectedFieldId === field.id))).map((field) => <button key={field.id} type="button" aria-label={t("Fill {label}", { label: field.label })} className={`absolute z-10 text-left ${activeTool === "text" ? "bg-cyan-500/10 hover:bg-cyan-500/20" : "bg-transparent hover:bg-cyan-500/10"}`} style={{ left: field.x, top: field.y, width: field.width, height: field.height }}
-        onClick={(event) => { event.stopPropagation(); onFieldPlaced?.(field); }} />)}
+      {activeTool === "text" && detectedFields.filter((field) => !textElements.some((item) => item.id === `field-${page}-${field.id}` || (item.page === page && item.detectedFieldId === field.id))).map((field) => <button key={field.id} type="button" aria-label={t("Fill {label}", { label: field.label })} className={`absolute z-10 text-left ${activeTool === "text" ? "bg-cyan-500/10 hover:bg-cyan-500/20" : "bg-transparent hover:bg-cyan-500/10"}`} style={{ left: field.x, top: field.y, width: field.width, height: field.height }}
+        onClick={(event) => { event.stopPropagation(); if (!scrolled.current) onFieldPlaced?.(field); }} />)}
       {placementMode && (
         <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-full border border-foreground/10 bg-background/90 px-3 py-1 text-xs shadow">{t("Click where you want to place it")}</div>
       )}
@@ -246,7 +246,7 @@ export default function DocumentFillLayer({
           <div
             key={item.id}
             data-text-item
-            className={`absolute text-black ${isSelected ? "z-30 ring-1 ring-[color:var(--color-accent)]" : "z-10"}`}
+            className={`absolute text-black ${activeTool === "select" ? "pointer-events-none" : ""} ${isSelected ? "z-30 ring-1 ring-[color:var(--color-accent)]" : "z-10"}`}
             style={{ left: item.x, top: item.y, width: item.width, height: item.height }}
             onClick={(event) => {
               event.stopPropagation();
@@ -270,33 +270,11 @@ export default function DocumentFillLayer({
                 });
               }}
             >
-              {/* Keep the PDF-matched glyphs on the same baseline during focus,
-                  typing and blur. The transparent input supplies caret/selection. */}
-              <svg width={item.width} height={item.height} className="pointer-events-none absolute inset-0 block overflow-hidden" aria-hidden="true">
-                <text x={layout.padding} y={layout.baseline} fill={item.text ? "#000000" : "#4b5563"} style={{ ...cssFont(item.fontName), fontSize: layout.size }}
-                  textLength={layout.textWidth || undefined} lengthAdjust="spacingAndGlyphs">{item.text || (isEditing ? t("Enter text") : "")}</text>
-              </svg>
-              {isEditing ? <input
-                value={item.text}
-                autoFocus
-                aria-label={t("Document text on page {page}", { page: item.page })}
-                onChange={(event) => updateText(item.id, { text: event.target.value })}
-                onPointerDown={(event) => event.stopPropagation()}
-                onFocus={() => { setSelected({ kind: "text", id: item.id }); setEditingText(item.id); }}
-                onBlur={(event) => {
-                  setEditingText(null);
-                  if (!event.currentTarget.closest("[data-text-item]")?.contains(event.relatedTarget as Node | null)) setSelected(null);
-                }}
-                onKeyDown={(event) => { if (event.key === "Enter" || event.key === "Escape") event.currentTarget.blur(); }}
-                placeholder={t("Enter text")}
-                className="relative h-full w-full border-0 bg-transparent outline-none placeholder:text-gray-600"
-                style={{ ...cssFont(item.fontName), padding: `0 ${layout.padding}px`, paddingTop: 0, paddingBottom: 0, lineHeight: `${(layout.baseline - layout.size * 0.35) * 2}px`, fontSize: layout.size, color: "transparent", caretColor: "#000000", WebkitTextFillColor: "transparent", colorScheme: "light", textSizeAdjust: "none", boxShadow: "none", borderRadius: 0 }}
-              /> : <button type="button" aria-label={t("Document text on page {page}", { page: item.page })}
-                className="block h-full w-full border-0 bg-transparent p-0 text-left"
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={(event) => { event.stopPropagation(); setSelected({ kind: "text", id: item.id }); setEditingText(item.id); }}>
-                <span className="sr-only">{item.text}</span>
-              </button>}
+              <PositionedTextInput item={item} editing={isEditing && activeTool !== "select"}
+                label={t("Document text on page {page}", { page: item.page })} placeholder={t("Enter text")}
+                onChange={(text) => updateText(item.id, { text })}
+                onEdit={() => { if (activeTool === "select") return; setSelected({ kind: "text", id: item.id }); setEditingText(item.id); }}
+                onBlur={(target) => { setEditingText(null); if (!target?.closest("[data-text-item]")) setSelected(null); }} />
 
             </div>
             {isSelected && canEditSelection && (
@@ -432,6 +410,44 @@ export default function DocumentFillLayer({
       )}
     </div>
   );
+}
+
+// The same native input draws both the text and its caret, before and after blur.
+// Position its line box using the browser font metrics and the PDF baseline.
+function PositionedTextInput({ item, editing, label, placeholder, onChange, onEdit, onBlur }: {
+  item: TextElement; editing: boolean; label: string; placeholder: string;
+  onChange: (text: string) => void; onEdit: () => void; onBlur: (target: HTMLElement | null) => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const layout = layoutText(item);
+  const [metrics, setMetrics] = useState<{ ascent: number; descent: number } | null>(null);
+  useLayoutEffect(() => {
+    const node = input.current;
+    const context = document.createElement("canvas").getContext("2d");
+    if (!node || !context) return;
+    const style = getComputedStyle(node);
+    context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    const measured = context.measureText("Hg");
+    setMetrics({ ascent: measured.fontBoundingBoxAscent, descent: measured.fontBoundingBoxDescent });
+  }, [layout.size, item.fontName]);
+  useEffect(() => {
+    if (editing) input.current?.focus({ preventScroll: true });
+    else input.current?.blur();
+  }, [editing]);
+  const box = nativeInputBox(layout, metrics);
+  return <input ref={input} value={item.text} readOnly={!editing} aria-label={label}
+    onChange={(event) => onChange(event.target.value)}
+    onPointerDown={(event) => event.stopPropagation()}
+    onClick={(event) => { event.stopPropagation(); onEdit(); }}
+    onFocus={onEdit}
+    onBlur={(event) => onBlur(event.relatedTarget as HTMLElement | null)}
+    onKeyDown={(event) => { if (event.key === "Enter" || event.key === "Escape") event.currentTarget.blur(); }}
+    placeholder={editing ? placeholder : undefined}
+    className="absolute w-full border-0 bg-transparent text-black outline-none placeholder:text-gray-600"
+    style={{ ...cssFont(item.fontName), left: 0, top: box.top, height: box.height, lineHeight: `${box.height}px`,
+      padding: `0 ${layout.padding}px`, margin: 0, border: 0, boxSizing: "border-box", appearance: "none",
+      fontSize: layout.size, fontKerning: "none", letterSpacing: 0, color: "#000000", WebkitTextFillColor: "#000000",
+      caretColor: editing ? "#000000" : "transparent", colorScheme: "light", textSizeAdjust: "none", boxShadow: "none", borderRadius: 0 }} />;
 }
 
 function TextFontSize({ value, label, onChange }: { value: number; label: string; onChange: (value: number) => void }) {

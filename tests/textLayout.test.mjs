@@ -29,3 +29,20 @@ test('common PDF fonts retain family and bold/italic styling', () => {
   assert.equal(matchingFont('ArialMT'), 'Helvetica');
   assert.equal(matchingFont('Courier New', true, false), 'Courier-Bold');
 });
+
+test('an explicit rule baseline is used for layout and scales with zoom', () => {
+  const entry = { ...name, baseline: 19 };
+  assert.equal(layoutText(entry).baseline, 19);
+  for (const ratio of [0.56, 1.5, 3]) {
+    assert.equal(layoutText(scaleText(entry, ratio)).baseline, 19 * ratio);
+  }
+});
+
+test('the native input line box puts the browser text baseline at the PDF baseline', async () => {
+  const { nativeInputBox } = await import('../src/lib/textLayout.ts');
+  for (const metrics of [{ ascent: 11, descent: 3 }, { ascent: 8, descent: 2 }, { ascent: 18, descent: 5 }]) {
+    const box = nativeInputBox({ size: 12, baseline: 20 }, metrics);
+    const actual = box.top + (box.height - metrics.ascent - metrics.descent) / 2 + metrics.ascent;
+    assert.ok(Math.abs(actual - 20) < 1e-8);
+  }
+});

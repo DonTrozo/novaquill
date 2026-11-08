@@ -99,3 +99,14 @@ test('detects narrow printed cells for short entries', async () => {
   const { fields } = await detect(await pdf.save());
   assert.ok(fields.some(item => item.width === 27 && item.height === 30));
 });
+
+test('ruled entries align to the adjacent label baseline instead of the tap target centre', async () => {
+  const pdf = await PDFDocument.create(); const page = pdf.addPage([600, 800]);
+  page.drawText('Effective Date:', { x: 45, y: 650, size: 12 });
+  page.drawLine({ start: { x: 145, y: 648 }, end: { x: 420, y: 648 }, thickness: 0.5 });
+  const { fields, viewport } = await detect(await pdf.save());
+  const line = fields.find(item => item.id.startsWith('line-'));
+  assert.ok(line); assert.ok(line.baseline > line.height * 0.8);
+  const expected = viewport.convertToViewportPoint(45, 650)[1];
+  assert.ok(Math.abs(line.y + line.baseline - expected) < 0.001);
+});

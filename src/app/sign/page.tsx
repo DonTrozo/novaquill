@@ -419,11 +419,6 @@ function SigningEditor() {
           {saveInkMessage && <span role="status" className="text-xs text-foreground/70">{t(saveInkMessage)}</span>}
         </div>}
         <p data-editor-help className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? t("Draw your signature. ShapeAssist is automatic. Tap Done signing, then move, resize or freely rotate your signature.") : activeTool === "select" ? t("Scroll or pinch to navigate. Choose Type to fill a field or add text.") : activeTool === "text" ? t("Tap a highlighted field to fill it, or tap anywhere to add text.") : t("Tap the document to add {tool}.", { tool: t(TOOL_LABELS[activeTool]).toLowerCase() })}</p>
-      <div aria-label={t("Document pages")} className="mt-2 flex items-center justify-center gap-4 text-sm">
-        <button type="button" onClick={() => handlePageChange("prev")} disabled={drawing || page <= 1} aria-label={t("Previous page")} className="rounded border px-3 py-1 disabled:opacity-30">‹</button>
-        <span>{t("Page")}{" "}{page}{" "}{t("of")}{" "}{numPages}</span>
-        <button type="button" onClick={() => handlePageChange("next")} disabled={drawing || page >= numPages} aria-label={t("Next page")} className="rounded border px-3 py-1 disabled:opacity-30">›</button>
-      </div>
       <section hidden={!signatureLibraryOpen} id="signature-library" aria-label={t("Saved signatures")} className="absolute inset-x-0 top-full z-50 mt-1 overflow-auto rounded-lg border border-foreground/15 bg-background p-3 shadow-lg" style={{ maxHeight: panelMaxHeight }}>
         <p className="mb-3 text-sm text-foreground/70">{isSignedIn ? t("Saved signatures stay in your account for your next visit. Tap one, then tap the document to place it.") : t("Sign in to access your saved signatures. You can still type or upload a signature below.")}</p>
         {!isSignedIn && <button type="button" disabled={savingInk || status === "loading"} className="mb-3 rounded border px-3 py-2 text-sm" onClick={() => {
@@ -433,7 +428,11 @@ function SigningEditor() {
         {saveInkMessage && <p role="status" className="mb-3 text-sm">{t(saveInkMessage)}</p>}
         <SignatureTools key={signatureLibraryVersion} onSignature={handleSignature} drawingEnabled={false} />
       </section>
-
+      </div>
+      <div aria-label={t("Document pages")} className="mb-2 flex shrink-0 items-center justify-center gap-4 text-sm">
+        <button type="button" onClick={() => handlePageChange("prev")} disabled={drawing || page <= 1} aria-label={t("Previous page")} className="rounded border px-3 py-1 disabled:opacity-30">‹</button>
+        <span>{t("Page")}{" "}{page}{" "}{t("of")}{" "}{numPages}</span>
+        <button type="button" onClick={() => handlePageChange("next")} disabled={drawing || page >= numPages} aria-label={t("Next page")} className="rounded border px-3 py-1 disabled:opacity-30">›</button>
       </div>
       </div>
       <div ref={viewerContainerRef} aria-label={t("Scrollable PDF document")} className={`relative isolate z-0 min-h-0 flex-1 overflow-auto overscroll-contain rounded-md border p-3 ${activeTool === "select" ? "cursor-grab" : ""}`}

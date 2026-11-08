@@ -421,6 +421,7 @@ function SigningEditor() {
         }}
         onPointerDown={(event) => {
           if (activeTool !== "select" || event.pointerType !== "mouse" || event.button !== 0 || !(event.target instanceof HTMLElement) || event.target.dataset.navigationSurface !== "true") return;
+          if (event.target.closest("[data-text-item]")) return;
           const node = event.currentTarget;
           panRef.current = { id: event.pointerId, x: event.clientX, y: event.clientY, left: node.scrollLeft, top: node.scrollTop };
           node.setPointerCapture(event.pointerId);

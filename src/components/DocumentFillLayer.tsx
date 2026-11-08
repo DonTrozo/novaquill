@@ -221,11 +221,7 @@ export default function DocumentFillLayer({
     >
       {activeTool === "text" && detectedFields.filter((field) => !textElements.some((item) => item.id === `field-${page}-${field.id}` || (item.page === page && item.detectedFieldId === field.id))).map((field) => <button key={field.id} type="button" aria-label={t("Fill {label}", { label: field.label })} className={`absolute z-10 text-left ${activeTool === "text" ? "bg-cyan-500/10 hover:bg-cyan-500/20" : "bg-transparent hover:bg-cyan-500/10"}`} style={{ left: field.x, top: field.y, width: field.width, height: field.height }}
         onClick={(event) => { event.stopPropagation(); if (!scrolled.current) onFieldPlaced?.(field); }} />)}
-      {placementMode && (
-        <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-full border border-foreground/10 bg-background/90 px-3 py-1 text-xs shadow">{t("Click where you want to place it")}</div>
-      )}
-
-      {selected && canEditSelection && (
+      {selected?.kind === "signature" && canEditSelection && (
         <button
           type="button"
           className="absolute right-2 top-2 z-20 rounded-md border bg-background px-2 py-1 text-xs shadow hover:bg-red-50 hover:text-red-700"
@@ -234,7 +230,7 @@ export default function DocumentFillLayer({
             deleteSelected();
           }}
         >
-          {selected.kind === "signature" ? t("Delete signature") : t("Delete text")}
+          {t("Delete signature")}
         </button>
       )}
 
@@ -246,41 +242,28 @@ export default function DocumentFillLayer({
           <div
             key={item.id}
             data-text-item
-            className={`absolute text-black ${activeTool === "select" ? "pointer-events-none" : ""} ${isSelected ? "z-30 ring-1 ring-[color:var(--color-accent)]" : "z-10"}`}
+            className={`absolute text-black ${isSelected ? "z-30 ring-1 ring-[color:var(--color-accent)]" : "z-10"}`}
             style={{ left: item.x, top: item.y, width: item.width, height: item.height }}
             onClick={(event) => {
               event.stopPropagation();
+              if (scrolled.current) return;
               setSelected({ kind: "text", id: item.id });
-              setEditingText(item.id);
+              setEditingText(activeTool === "select" ? null : item.id);
             }}
           >
-            <div
-              className="h-full w-full cursor-move touch-none"
-              onPointerDown={(event) => {
-                setSelected({ kind: "text", id: item.id });
-                if (item.fieldName) return;
-                beginDrag(event, {
-                  target: "text",
-                  id: item.id,
-                  kind: "move",
-                  startX: item.x,
-                  startY: item.y,
-                  startWidth: item.width,
-                  startHeight: item.height,
-                });
-              }}
-            >
-              <PositionedTextInput item={item} editing={isEditing && activeTool !== "select"}
+            <div className="h-full w-full">
+              <PositionedTextInput item={item} editing={isEditing && activeTool !== "select"} scrollMode={activeTool === "select"}
                 label={t("Document text on page {page}", { page: item.page })} placeholder={t("Enter text")}
                 onChange={(text) => updateText(item.id, { text })}
-                onEdit={() => { if (activeTool === "select") return; setSelected({ kind: "text", id: item.id }); setEditingText(item.id); }}
+                onEdit={() => { if (scrolled.current) return; setSelected({ kind: "text", id: item.id }); setEditingText(activeTool === "select" ? null : item.id); }}
                 onBlur={(target) => { setEditingText(null); if (!target?.closest("[data-text-item]")) setSelected(null); }} />
 
             </div>
             {isSelected && canEditSelection && (
               <div
-                className="absolute left-0 flex items-center gap-2 whitespace-nowrap rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-black shadow"
-                style={{ top: item.y >= 60 ? -56 : item.height + 8, left: clamp(0, -item.x, pdfSize.width - item.x - 280) }}
+                role="toolbar" aria-label={t("Text controls")}
+                className="absolute left-0 flex flex-wrap items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-black shadow"
+                style={{ ...(item.y >= 96 ? { bottom: item.height + 8 } : { top: item.height + 8 }), width: Math.min(320, pdfSize.width), maxWidth: "calc(100vw - 3rem)", left: clamp(0, -item.x, pdfSize.width - item.x - Math.min(320, pdfSize.width)) }}
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => event.stopPropagation()}
               >
@@ -310,12 +293,20 @@ export default function DocumentFillLayer({
                   }}
                 >{t("↔ Move")}</button>{t("Size")}<TextFontSize value={layout.size / scale} label={t("Text font size in points")} onChange={(points) => updateText(item.id, { fontSize: points * scale, preferredFontSize: points * scale })} />
                 pt
+                <button type="button" aria-label={t("Delete text")}
+                  className="min-h-10 rounded border border-red-700 bg-white px-2 text-red-700"
+                  onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onTextElementsChange(textElements.filter((entry) => entry.id !== item.id));
+                    setSelected(null); setEditingText(null);
+                  }}>{t("Delete")}</button>
               </div>
             )}
             {isSelected && canEditSelection && !item.fieldName && !item.detectedFieldId && (
               <div
                 aria-label={t("Resize text")}
-                className="absolute -bottom-3 -right-3 h-7 w-7 cursor-se-resize touch-none rounded-full border border-[color:var(--color-accent)] bg-background shadow"
+                className="absolute -bottom-3 -right-3 grid h-6 w-6 cursor-se-resize touch-none place-items-center"
                 onPointerDown={(event) =>
                   beginDrag(event, {
                     target: "text",
@@ -327,7 +318,7 @@ export default function DocumentFillLayer({
                     startHeight: item.height,
                   })
                 }
-              />
+              ><span className="pointer-events-none h-2.5 w-2.5 border border-[color:var(--color-accent)] bg-white" /></div>
             )}
           </div>
         );
@@ -414,8 +405,8 @@ export default function DocumentFillLayer({
 
 // The same native input draws both the text and its caret, before and after blur.
 // Position its line box using the browser font metrics and the PDF baseline.
-function PositionedTextInput({ item, editing, label, placeholder, onChange, onEdit, onBlur }: {
-  item: TextElement; editing: boolean; label: string; placeholder: string;
+function PositionedTextInput({ item, editing, scrollMode, label, placeholder, onChange, onEdit, onBlur }: {
+  item: TextElement; editing: boolean; scrollMode: boolean; label: string; placeholder: string;
   onChange: (text: string) => void; onEdit: () => void; onBlur: (target: HTMLElement | null) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
@@ -437,9 +428,10 @@ function PositionedTextInput({ item, editing, label, placeholder, onChange, onEd
   const box = nativeInputBox(layout, metrics);
   return <input ref={input} value={item.text} readOnly={!editing} aria-label={label}
     onChange={(event) => onChange(event.target.value)}
-    onPointerDown={(event) => event.stopPropagation()}
+    data-navigation-surface={scrollMode ? "true" : undefined}
+    onPointerDown={(event) => { if (!scrollMode) event.stopPropagation(); }}
     onClick={(event) => { event.stopPropagation(); onEdit(); }}
-    onFocus={onEdit}
+    onFocus={() => { if (!scrollMode) onEdit(); }}
     onBlur={(event) => onBlur(event.relatedTarget as HTMLElement | null)}
     onKeyDown={(event) => { if (event.key === "Enter" || event.key === "Escape") event.currentTarget.blur(); }}
     placeholder={editing ? placeholder : undefined}

@@ -109,7 +109,7 @@ function SigningEditor() {
   const inkGroupRef = useRef<string | null>(null);
   const pageInkGroups = [...new Set(inkStrokes.filter((stroke) => stroke.page === page).map(inkGroupId))];
   const editableInkGroup = selectedInk && pageInkGroups.includes(selectedInk)
-    ? selectedInk : pageInkGroups.length === 1 ? pageInkGroups[0] : null;
+    ? selectedInk : null;
   const deleteDrawnSignature = () => {
     if (!editableInkGroup) return;
     setInkStrokes((current) => current.filter((stroke) => stroke.page !== page || inkGroupId(stroke) !== editableInkGroup));
@@ -359,7 +359,7 @@ function SigningEditor() {
             <button type="button" onClick={() => handleScaleChange("increase")} disabled={drawing} aria-label={t("Zoom in")} className="rounded border px-3 py-2">+</button>
           </div>
         </div>
-        {activeTool === "select" && pageInkGroups.length > 0 && <div className="mt-2 flex flex-wrap items-center gap-2">
+        {activeTool === "select" && editableInkGroup && <div className="mt-2 flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => rotateDrawnSignature(-ROTATION_STEP)} disabled={!editableInkGroup || drawing || !pdfReady}
             aria-label={t("Rotate signature left 15 degrees")} className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">{t("↶ Rotate left")}</button>
           <button type="button" onClick={() => rotateDrawnSignature(ROTATION_STEP)} disabled={!editableInkGroup || drawing || !pdfReady}
@@ -368,7 +368,6 @@ function SigningEditor() {
             className="min-h-10 rounded-md border border-red-700 bg-background px-3 py-2 text-sm text-red-700 disabled:opacity-50 dark:text-red-400">{t("Delete signature")}</button>
           <button type="button" onClick={() => void saveDocumentInk()} disabled={savingInk || drawing || !editableInkGroup || status === "loading"}
             className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">{savingInk ? t("Saving…") : isSignedIn ? t("Save signature for next time") : t("Sign in to save signature")}</button>
-          {!editableInkGroup && <span className="text-xs text-foreground/70">{t("Tap a signature to select it first.")}</span>}
           {saveInkMessage && <span role="status" className="text-xs text-foreground/70">{t(saveInkMessage)}</span>}
         </div>}
         <p className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? t("Draw your signature. ShapeAssist is automatic. Tap Done signing, then move, resize or freely rotate your signature.") : activeTool === "select" ? t("Scroll or pinch to navigate. Choose Type to fill a field or add text.") : activeTool === "text" ? t("Tap a highlighted field to fill it, or tap anywhere to add text.") : t("Tap the document to add {tool}.", { tool: t(TOOL_LABELS[activeTool]).toLowerCase() })}</p>
@@ -416,6 +415,10 @@ function SigningEditor() {
       </div>}
       <div ref={viewerContainerRef} aria-label={t("Scrollable PDF document")} className={`relative isolate z-0 max-h-[65svh] min-h-64 overflow-auto overscroll-contain rounded-md border p-3 ${activeTool === "select" ? "cursor-grab" : ""}`}
         style={{ touchAction: activeTool === "draw" ? "none" : "pan-x pan-y pinch-zoom" }}
+        onClick={(event) => {
+          if (activeTool === "select" && (event.target === event.currentTarget ||
+            (event.target instanceof HTMLElement && event.target.dataset.navigationSurface === "true"))) setSelectedInk(null);
+        }}
         onPointerDown={(event) => {
           if (activeTool !== "select" || event.pointerType !== "mouse" || event.button !== 0 || !(event.target instanceof HTMLElement) || event.target.dataset.navigationSurface !== "true") return;
           const node = event.currentTarget;

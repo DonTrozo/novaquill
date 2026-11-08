@@ -68,6 +68,7 @@ export default function DocumentFillLayer({
   onClearSignature,
   detectedFields = [],
   onFieldPlaced,
+  onTextMove,
 }: {
   pdfSize: Size;
   scale?: number;
@@ -87,6 +88,7 @@ export default function DocumentFillLayer({
   onClearSignature: () => void;
   detectedFields?: DetectedField[];
   onFieldPlaced?: (field: DetectedField) => void;
+  onTextMove?: (item: TextElement) => void;
 }) {
   const { t } = useLanguage();
   const [selected, setSelected] = useState<Selected>(null);
@@ -102,6 +104,10 @@ export default function DocumentFillLayer({
 
   const pageTextElements = textElements.filter((item) => item.page === page);
   const placementMode = activeTool !== "select";
+  const canEditSelection = activeTool === "select" || activeTool === "text";
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const scrolled = useRef(false);
+  const moveRemembered = useRef(false);
 
   const updateText = (id: string, updates: Partial<TextElement>) => {
     const target = textElements.find((item) => item.id === id);
@@ -115,6 +121,7 @@ export default function DocumentFillLayer({
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
+    moveRemembered.current = false;
     setDragState({ ...state, startClientX: event.clientX, startClientY: event.clientY });
   };
 
@@ -153,10 +160,14 @@ export default function DocumentFillLayer({
       });
     } else {
       const item = textElements.find((item) => item.id === dragState.id);
+      const x = clamp(dragState.startX + dx, 0, pdfSize.width - dragState.startWidth);
+      const y = clamp(dragState.startY + dy, 0, pdfSize.height - dragState.startHeight);
+      if (!item || (x === item.x && y === item.y)) return;
+      if (!moveRemembered.current) { onTextMove?.(item); moveRemembered.current = true; }
       updateText(dragState.id, {
         ...(item?.fieldName ? { fieldName: undefined, sourceFieldName: item.fieldName } : {}),
-        x: clamp(dragState.startX + dx, 0, pdfSize.width - dragState.startWidth),
-        y: clamp(dragState.startY + dy, 0, pdfSize.height - dragState.startHeight),
+        x,
+        y,
       });
     }
   };
@@ -177,9 +188,9 @@ export default function DocumentFillLayer({
   };
 
   const handleCanvasClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (scrolled.current) return;
     if (!placementMode) {
       setSelected(null);
-      setEditingText(null);
       setEditingText(null);
       return;
     }
@@ -201,6 +212,11 @@ export default function DocumentFillLayer({
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
+      onPointerDownCapture={(event) => { pointerStart.current = { x: event.clientX, y: event.clientY }; scrolled.current = false; }}
+      onPointerMoveCapture={(event) => {
+        const start = pointerStart.current;
+        if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 6) scrolled.current = true;
+      }}
       onClick={handleCanvasClick}
     >
       {(activeTool === "text" || activeTool === "select") && detectedFields.filter((field) => !textElements.some((item) => item.id === `field-${page}-${field.id}` || (item.page === page && item.detectedFieldId === field.id))).map((field) => <button key={field.id} type="button" aria-label={t("Fill {label}", { label: field.label })} className={`absolute z-10 text-left ${activeTool === "text" ? "bg-cyan-500/10 hover:bg-cyan-500/20" : "bg-transparent hover:bg-cyan-500/10"}`} style={{ left: field.x, top: field.y, width: field.width, height: field.height }}
@@ -209,7 +225,7 @@ export default function DocumentFillLayer({
         <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-full border border-foreground/10 bg-background/90 px-3 py-1 text-xs shadow">{t("Click where you want to place it")}</div>
       )}
 
-      {selected && !placementMode && (
+      {selected && canEditSelection && (
         <button
           type="button"
           className="absolute right-2 top-2 z-20 rounded-md border bg-background px-2 py-1 text-xs shadow hover:bg-red-50 hover:text-red-700"
@@ -254,6 +270,12 @@ export default function DocumentFillLayer({
                 });
               }}
             >
+              {/* Keep the PDF-matched glyphs on the same baseline during focus,
+                  typing and blur. The transparent input supplies caret/selection. */}
+              <svg width={item.width} height={item.height} className="pointer-events-none absolute inset-0 block overflow-hidden" aria-hidden="true">
+                <text x={layout.padding} y={layout.baseline} fill={item.text ? "#000000" : "#4b5563"} style={{ ...cssFont(item.fontName), fontSize: layout.size }}
+                  textLength={layout.textWidth || undefined} lengthAdjust="spacingAndGlyphs">{item.text || (isEditing ? t("Enter text") : "")}</text>
+              </svg>
               {isEditing ? <input
                 value={item.text}
                 autoFocus
@@ -267,20 +289,17 @@ export default function DocumentFillLayer({
                 }}
                 onKeyDown={(event) => { if (event.key === "Enter" || event.key === "Escape") event.currentTarget.blur(); }}
                 placeholder={t("Enter text")}
-                className="h-full w-full border-0 bg-transparent outline-none text-black placeholder:text-gray-600"
-                style={{ ...cssFont(item.fontName), padding: `0 ${layout.padding}px`, fontSize: layout.size, color: "#000000", WebkitTextFillColor: "#000000", colorScheme: "light", textSizeAdjust: "none", boxShadow: "none", borderRadius: 0 }}
+                className="relative h-full w-full border-0 bg-transparent outline-none placeholder:text-gray-600"
+                style={{ ...cssFont(item.fontName), padding: `0 ${layout.padding}px`, paddingTop: 0, paddingBottom: 0, lineHeight: `${(layout.baseline - layout.size * 0.35) * 2}px`, fontSize: layout.size, color: "transparent", caretColor: "#000000", WebkitTextFillColor: "transparent", colorScheme: "light", textSizeAdjust: "none", boxShadow: "none", borderRadius: 0 }}
               /> : <button type="button" aria-label={t("Document text on page {page}", { page: item.page })}
                 className="block h-full w-full border-0 bg-transparent p-0 text-left"
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => { event.stopPropagation(); setSelected({ kind: "text", id: item.id }); setEditingText(item.id); }}>
-                <svg width={item.width} height={item.height} className="block overflow-hidden" aria-hidden="true">
-                  <text x={layout.padding} y={layout.baseline} fill="#000000" style={{ ...cssFont(item.fontName), fontSize: layout.size }}
-                    textLength={layout.textWidth || undefined} lengthAdjust="spacingAndGlyphs">{item.text}</text>
-                </svg>
+                <span className="sr-only">{item.text}</span>
               </button>}
 
             </div>
-            {isSelected && !placementMode && (
+            {isSelected && canEditSelection && (
               <div
                 className="absolute left-0 flex items-center gap-2 whitespace-nowrap rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-black shadow"
                 style={{ top: item.y >= 60 ? -56 : item.height + 8, left: clamp(0, -item.x, pdfSize.width - item.x - 280) }}
@@ -301,17 +320,21 @@ export default function DocumentFillLayer({
                     if (!direction) return;
                     event.preventDefault(); event.stopPropagation();
                     const step = (event.shiftKey ? 10 : 1) * scale;
+                    const x = clamp(item.x + direction[0] * step, 0, Math.max(0, pdfSize.width - item.width));
+                    const y = clamp(item.y + direction[1] * step, 0, Math.max(0, pdfSize.height - item.height));
+                    if (x === item.x && y === item.y) return;
+                    onTextMove?.(item);
                     updateText(item.id, {
                       ...(item.fieldName ? { fieldName: undefined, sourceFieldName: item.fieldName } : {}),
-                      x: clamp(item.x + direction[0] * step, 0, Math.max(0, pdfSize.width - item.width)),
-                      y: clamp(item.y + direction[1] * step, 0, Math.max(0, pdfSize.height - item.height)),
+                      x,
+                      y,
                     });
                   }}
                 >{t("↔ Move")}</button>{t("Size")}<TextFontSize value={layout.size / scale} label={t("Text font size in points")} onChange={(points) => updateText(item.id, { fontSize: points * scale, preferredFontSize: points * scale })} />
                 pt
               </div>
             )}
-            {isSelected && !placementMode && !item.fieldName && !item.detectedFieldId && (
+            {isSelected && canEditSelection && !item.fieldName && !item.detectedFieldId && (
               <div
                 aria-label={t("Resize text")}
                 className="absolute -bottom-3 -right-3 h-7 w-7 cursor-se-resize touch-none rounded-full border border-[color:var(--color-accent)] bg-background shadow"

@@ -12,6 +12,7 @@ import DocumentInkLayer, { imageOfInk } from "@/components/DocumentInkLayer";
 import { inkGroupId, rotateInkGroup, type InkStroke } from "@/lib/documentInk";
 import InkSelectionLayer from "@/components/InkSelectionLayer";
 import { scaleText } from "@/lib/textLayout";
+import { rememberTextMove, restoreTextMove, type MovableText } from "@/lib/textMoveHistory";
 import type { DetectedField } from "@/lib/pdfFields";
 import DocumentFillLayer, { type EditorTool, type TextElement } from "@/components/DocumentFillLayer";
 import { useRef, useState } from "react";
@@ -94,6 +95,15 @@ function SigningEditor() {
   const toolsRef = useRef<HTMLDetailsElement | null>(null);
   const zoomScrollRef = useRef<{ left: number; top: number } | null>(null);
   const [textElements, setTextElements] = useState<TextElement[]>(draft?.textElements ?? []);
+  const [textMoves, setTextMoves] = useState<MovableText[]>([]);
+  const undoableMoves = textMoves.filter((move) => textElements.some((item) => item.id === move.id));
+  const undoTextMove = () => {
+    const previous = undoableMoves.at(-1);
+    if (!previous) return;
+    setTextElements((current) => current.map((item) => item.id === previous.id ? restoreTextMove(item, previous, scale) : item));
+    setTextMoves(undoableMoves.slice(0, -1));
+    if (previous.page !== page) { setPdfReady(false); setPage(previous.page); }
+  };
   const [detectedFields, setDetectedFields] = useState<DetectedField[]>([]);
   const [selectedInk, setSelectedInk] = useState<string | null>(null);
   const inkGroupRef = useRef<string | null>(null);
@@ -126,7 +136,7 @@ function SigningEditor() {
   };
   const placeDetectedField = (field: DetectedField) => {
     setTextElements((current) => [...current, { id: `field-${page}-${field.id}`, page, x: field.x, y: field.y, width: field.width, height: field.height, fontSize: field.fontSize ?? Math.min(11 * scale, field.height * 0.6), preferredFontSize: field.fontSize ?? 11 * scale, fontName: field.fontName ?? "Helvetica", autoFit: true, padding: 2 * scale, detectedFieldId: field.id, text: field.value ?? "", fieldName: field.fieldName }]);
-    setActiveTool("select");
+    // Keep text placement available for the next field.
   };
   const isSignedIn = status === "authenticated";
 
@@ -198,7 +208,7 @@ function SigningEditor() {
   };
 
   const handlePageChange = (direction: "next" | "prev") => {
-    setActiveTool("select");
+    setActiveTool((tool) => tool === "text" ? "text" : "select");
     setPdfReady(false);
     setPage((currentPage) => {
       if (direction === "next") return Math.min(numPages, currentPage + 1);
@@ -246,7 +256,7 @@ function SigningEditor() {
         padding: 2 * scale,
       },
     ]);
-    setActiveTool("select");
+    if (tool !== "text") setActiveTool("select");
   };
 
   const handleToolPlaced = (point: Point) => {
@@ -324,7 +334,7 @@ function SigningEditor() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-6">
+    <div className="mx-auto max-w-5xl px-3 pb-28 pt-4 sm:px-6 sm:pt-6">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">{t("Sign your PDF")}</h1>
         <SigningUsageNotice state={allowanceState} compact />
@@ -336,6 +346,9 @@ function SigningEditor() {
             className={`rounded-md px-4 py-2 text-sm font-medium ${activeTool === "draw" ? "border border-foreground/20" : "bg-[color:var(--color-accent)] text-white"}`}>
             {activeTool === "draw" ? t("Done signing") : t("Sign")}
           </button>
+          <button type="button" disabled={drawing || !pdfReady} aria-pressed={activeTool === "text"} className={toolButtonClass("text")} onClick={() => setActiveTool((tool) => tool === "text" ? "select" : "text")}>{activeTool === "text" ? t("Done") : t("Text")}</button>
+          <button type="button" onClick={undoTextMove} disabled={drawing || !pdfReady || undoableMoves.length === 0}
+            aria-label={t("Undo text move")} className="rounded-md border px-3 py-2 text-sm disabled:opacity-40">{t("Undo move")}</button>
           {activeTool !== "draw" && <button type="button" onClick={() => setSignatureLibraryOpen((open) => !open)} disabled={drawing}
             aria-expanded={signatureLibraryOpen} aria-controls="signature-library" className="rounded-md border px-3 py-2 text-sm">{t("Saved signatures")}</button>}
           {activeTool === "draw" && inkStrokes.some((stroke) => stroke.page === page) && <button type="button" onClick={undoInk} disabled={drawing} className="px-2 py-2 text-sm underline">{t("Undo")}</button>}
@@ -400,7 +413,7 @@ function SigningEditor() {
         <span>{t("Page")}{" "}{page}{" "}{t("of")}{" "}{numPages}</span>
         <button type="button" onClick={() => handlePageChange("next")} disabled={drawing || page >= numPages} aria-label={t("Next page")} className="rounded border px-3 py-1 disabled:opacity-30">›</button>
       </div>}
-      <div ref={viewerContainerRef} aria-label={t("Scrollable PDF document")} className={`max-h-[65svh] min-h-64 overflow-auto overscroll-contain rounded-md border p-3 ${activeTool === "select" ? "cursor-grab" : ""}`}
+      <div ref={viewerContainerRef} aria-label={t("Scrollable PDF document")} className={`relative isolate z-0 max-h-[65svh] min-h-64 overflow-auto overscroll-contain rounded-md border p-3 ${activeTool === "select" ? "cursor-grab" : ""}`}
         style={{ touchAction: activeTool === "draw" ? "none" : "pan-x pan-y pinch-zoom" }}
         onPointerDown={(event) => {
           if (activeTool !== "select" || event.pointerType !== "mouse" || event.button !== 0 || !(event.target instanceof HTMLElement) || event.target.dataset.navigationSurface !== "true") return;
@@ -414,6 +427,7 @@ function SigningEditor() {
         <div className="relative inline-block min-w-fit">
           <PdfViewer onFields={setDetectedFields} onSize={handlePdfSize} onMeta={({ numPages }) => setNumPages(numPages)} page={page} scale={scale} />
           {pdfSize && pdfReady && <DocumentFillLayer scale={scale} pdfSize={pdfSize} page={page} activeTool={activeTool === "draw" ? "select" : activeTool}
+            onTextMove={(item) => setTextMoves((current) => [...current.slice(-49), rememberTextMove(item, scale)])}
             sigDataUrl={sigDataUrl} signaturePlaced={signaturePlaced && signaturePage === page} signaturePosition={pos} signatureSize={signatureSize} signatureRotation={signatureRotation}
             detectedFields={detectedFields} onFieldPlaced={placeDetectedField} textElements={textElements} onToolPlaced={handleToolPlaced} onSignaturePositionChange={setPos} onSignatureSizeChange={setSignatureSize} onSignatureRotationChange={setSignatureRotation} onTextElementsChange={setTextElements} onClearSignature={clearSignature} />}
           {pdfSize && pdfReady && <DocumentInkLayer size={pdfSize} scale={scale} page={page} enabled={activeTool === "draw"} strokes={inkStrokes} color={inkColor} penWidth={inkWidth}
@@ -421,10 +435,10 @@ function SigningEditor() {
           {pdfSize && pdfReady && activeTool === "select" && <InkSelectionLayer strokes={inkStrokes} page={page} scale={scale} size={pdfSize} selected={selectedInk} onSelect={setSelectedInk} onChange={(next) => { setInkStrokes(next); setRedoInk([]); }} />}
         </div>
       </div>
-      <div className="sticky bottom-0 z-40 mt-3 border-t border-foreground/10 bg-background py-3">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-foreground/10 bg-background px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-lg"><div className="mx-auto max-w-5xl">
         <Finalizer onBeforeSignIn={preserveForSignIn} resumePreview={Boolean(draft)} sigDataUrl={signaturePlaced ? sigDataUrl : null} page={signaturePage} x={pos.x} y={pos.y} width={signatureSize.width} height={signatureSize.height} rotation={signatureRotation}
           textElements={textElements} inkStrokes={inkStrokes} drawing={drawing || !pdfReady} pdfViewportSize={pdfPageSizes[signaturePage]} pdfViewportSizes={pdfPageSizes} />
-      </div>
+      </div></div>
     </div>
   );
 }

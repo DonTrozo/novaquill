@@ -135,7 +135,7 @@ function SigningEditor() {
     if (toolsRef.current) toolsRef.current.open = false;
   };
   const placeDetectedField = (field: DetectedField) => {
-    setTextElements((current) => [...current, { id: `field-${page}-${field.id}`, page, x: field.x, y: field.y, width: field.width, height: field.height, fontSize: field.fontSize ?? Math.min(11 * scale, field.height * 0.6), preferredFontSize: field.fontSize ?? 11 * scale, fontName: field.fontName ?? "Helvetica", autoFit: true, padding: 2 * scale, detectedFieldId: field.id, text: field.value ?? "", fieldName: field.fieldName }]);
+    setTextElements((current) => [...current, { id: `field-${page}-${field.id}`, page, x: field.x, y: field.y, width: field.width, height: field.height, fontSize: field.fontSize ?? Math.min(11 * scale, field.height * 0.6), preferredFontSize: field.fontSize ?? 11 * scale, fontName: field.fontName ?? "Helvetica", autoFit: true, padding: 2 * scale, baseline: field.baseline, detectedFieldId: field.id, text: field.value ?? "", fieldName: field.fieldName }]);
     // Keep text placement available for the next field.
   };
   const isSignedIn = status === "authenticated";
@@ -346,7 +346,8 @@ function SigningEditor() {
             className={`rounded-md px-4 py-2 text-sm font-medium ${activeTool === "draw" ? "border border-foreground/20" : "bg-[color:var(--color-accent)] text-white"}`}>
             {activeTool === "draw" ? t("Done signing") : t("Sign")}
           </button>
-          <button type="button" disabled={drawing || !pdfReady} aria-pressed={activeTool === "text"} className={toolButtonClass("text")} onClick={() => setActiveTool((tool) => tool === "text" ? "select" : "text")}>{activeTool === "text" ? t("Done") : t("Text")}</button>
+          <button type="button" disabled={drawing || !pdfReady} aria-pressed={activeTool === "text"} className={toolButtonClass("text")} onClick={() => setActiveTool("text")}>{t("Type")}</button>
+          <button type="button" disabled={drawing} aria-pressed={activeTool === "select"} className={toolButtonClass("select")} onClick={() => setActiveTool("select")}>{t("Scroll")}</button>
           <button type="button" onClick={undoTextMove} disabled={drawing || !pdfReady || undoableMoves.length === 0}
             aria-label={t("Undo text move")} className="rounded-md border px-3 py-2 text-sm disabled:opacity-40">{t("Undo move")}</button>
           {activeTool !== "draw" && <button type="button" onClick={() => setSignatureLibraryOpen((open) => !open)} disabled={drawing}
@@ -370,7 +371,7 @@ function SigningEditor() {
           {!editableInkGroup && <span className="text-xs text-foreground/70">{t("Tap a signature to select it first.")}</span>}
           {saveInkMessage && <span role="status" className="text-xs text-foreground/70">{t(saveInkMessage)}</span>}
         </div>}
-        <p className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? t("Draw your signature. ShapeAssist is automatic. Tap Done signing, then move, resize or freely rotate your signature.") : activeTool === "select" ? t("Tap an empty box to fill it. Scroll or pinch to navigate. Tap a signature to move, resize or rotate it.") : activeTool === "text" ? t("Tap a highlighted field to fill it, or tap anywhere to add text.") : t("Tap the document to add {tool}.", { tool: t(TOOL_LABELS[activeTool]).toLowerCase() })}</p>
+        <p className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? t("Draw your signature. ShapeAssist is automatic. Tap Done signing, then move, resize or freely rotate your signature.") : activeTool === "select" ? t("Scroll or pinch to navigate. Choose Type to fill a field or add text.") : activeTool === "text" ? t("Tap a highlighted field to fill it, or tap anywhere to add text.") : t("Tap the document to add {tool}.", { tool: t(TOOL_LABELS[activeTool]).toLowerCase() })}</p>
       </div>
       <section hidden={!signatureLibraryOpen} id="signature-library" aria-label={t("Saved signatures")} className="mb-3 rounded-lg border border-foreground/15 p-3">
         <p className="mb-3 text-sm text-foreground/70">{isSignedIn ? t("Saved signatures stay in your account for your next visit. Tap one, then tap the document to place it.") : t("Sign in to access your saved signatures. You can still type or upload a signature below.")}</p>

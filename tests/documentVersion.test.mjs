@@ -16,3 +16,12 @@ test('editing content produces a new output identity', () => {
   assert.notEqual(documentVersion(input), documentVersion({ ...input, textElements: [{ ...input.textElements[0], text: 'Changed' }] }));
   assert.notEqual(documentVersion(input), documentVersion({ ...input, inkStrokes: [{ page: 1, points: [{ x: 100, y: 200 }], color: '#000000', width: 2, viewport: { width: 600, height: 800 } }] }));
 });
+
+test('rule baselines affect output identity while zoom preserves it', () => {
+  const aligned = { ...input, textElements: [{ ...input.textElements[0], baseline: 30 }] };
+  assert.notEqual(documentVersion(aligned), documentVersion({ ...aligned, textElements: [{ ...aligned.textElements[0], baseline: 28 }] }));
+  const zoomed = { ...aligned, x: aligned.x * 2, y: aligned.y * 2, width: aligned.width * 2, height: aligned.height * 2,
+    textElements: aligned.textElements.map(item => ({ ...item, x: item.x * 2, y: item.y * 2, width: item.width * 2, height: item.height * 2, fontSize: item.fontSize * 2, baseline: item.baseline * 2 })),
+    viewportSizes: { 1: { width: 1200, height: 1600 } } };
+  assert.equal(documentVersion(aligned), documentVersion(zoomed));
+});

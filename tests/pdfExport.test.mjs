@@ -204,3 +204,25 @@ test('auto-fitted table entries preserve font, cell bounds and page position at 
     } finally { await task.destroy(); }
   }
 });
+
+test('a ruled entry exports on the label baseline at every zoom', async () => {
+  const { DOMMatrix, Path2D, ImageData } = await import('@napi-rs/canvas');
+  globalThis.DOMMatrix = DOMMatrix; globalThis.Path2D = Path2D; globalThis.ImageData = ImageData;
+  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const pdf = await PDFDocument.create(); const page = pdf.addPage([600, 800]);
+  page.drawText('Effective Date:', { x: 45, y: 650, size: 12 });
+  const bytes = await pdf.save();
+  for (const zoom of [0.56, 1, 2]) {
+    const out = await buildSignedPdf({ pdfBytes: bytes, sigDataUrl: null, page: 1, x: 0, y: 0, width: 200, signatureHeight: 80, rotation: 0,
+      textElements: [{ id: 'rule', page: 1, x: 145 * zoom, y: 130 * zoom, width: 250 * zoom, height: 22 * zoom, baseline: 20 * zoom, fontSize: 12 * zoom, padding: 2 * zoom, autoFit: true, text: 'The black room' }],
+      pdfViewportSizes: { 1: { width: 600 * zoom, height: 800 * zoom } } });
+    const task = getDocument({ data: out, useSystemFonts: true });
+    try {
+      const content = await (await (await task.promise).getPage(1)).getTextContent();
+      const original = content.items.find(item => item.str === 'Effective Date:');
+      const inserted = content.items.find(item => item.str === 'The black room');
+      assert.ok(original && inserted);
+      assert.ok(Math.abs(original.transform[5] - inserted.transform[5]) < 0.01);
+    } finally { await task.destroy(); }
+  }
+});

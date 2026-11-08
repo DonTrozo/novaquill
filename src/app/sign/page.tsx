@@ -15,7 +15,7 @@ import { scaleText } from "@/lib/textLayout";
 import { rememberTextMove, restoreTextMove, type MovableText } from "@/lib/textMoveHistory";
 import type { DetectedField } from "@/lib/pdfFields";
 import DocumentFillLayer, { type EditorTool, type TextElement } from "@/components/DocumentFillLayer";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useUpload } from "@/context/UploadContext";
 import Finalizer from "./Finalizer";
@@ -93,6 +93,25 @@ function SigningEditor() {
   const viewerContainerRef = useRef<HTMLDivElement | null>(null);
   const autoFitDone = useRef(Boolean(draft));
   const toolsRef = useRef<HTMLDetailsElement | null>(null);
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const controlsRef = useRef<HTMLDivElement | null>(null);
+  const footerRef = useRef<HTMLDivElement | null>(null);
+  const [panelMaxHeight, setPanelMaxHeight] = useState(48);
+  useEffect(() => {
+    const node = editorRef.current;
+    if (!node) return;
+    const measure = () => {
+      if (controlsRef.current && footerRef.current) {
+        setPanelMaxHeight(Math.max(48, footerRef.current.getBoundingClientRect().top - controlsRef.current.getBoundingClientRect().bottom - 8));
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    if (controlsRef.current) observer.observe(controlsRef.current);
+    if (footerRef.current) observer.observe(footerRef.current);
+    return () => observer.disconnect();
+  }, [file]);
   const zoomScrollRef = useRef<{ left: number; top: number } | null>(null);
   const [textElements, setTextElements] = useState<TextElement[]>(draft?.textElements ?? []);
   const [textMoves, setTextMoves] = useState<MovableText[]>([]);
@@ -133,6 +152,7 @@ function SigningEditor() {
     if (activeTool === "draw") { setActiveTool("select"); setSelectedInk(inkGroupRef.current); }
     else { inkGroupRef.current = crypto.randomUUID(); setSelectedInk(null); setActiveTool("draw"); }
     if (toolsRef.current) toolsRef.current.open = false;
+    setSignatureLibraryOpen(false);
   };
   const placeDetectedField = (field: DetectedField) => {
     setTextElements((current) => [...current, { id: `field-${page}-${field.id}`, page, x: field.x, y: field.y, width: field.width, height: field.height, fontSize: field.fontSize ?? Math.min(11 * scale, field.height * 0.6), preferredFontSize: field.fontSize ?? 11 * scale, fontName: field.fontName ?? "Helvetica", autoFit: true, padding: 2 * scale, baseline: field.baseline, detectedFieldId: field.id, text: field.value ?? "", fieldName: field.fieldName }]);
@@ -334,57 +354,30 @@ function SigningEditor() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-3 pb-28 pt-4 sm:px-6 sm:pt-6">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">{t("Sign your PDF")}</h1>
+    <div ref={editorRef} data-pdf-editor className="relative z-40 flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col px-3 py-3 sm:px-6">
+      <div ref={controlsRef} className="relative z-40 shrink-0">
+      <div className="mb-2 flex shrink-0 items-center justify-between gap-3">
+        <h1 className="whitespace-nowrap text-base font-semibold">{t("Sign your PDF")}</h1>
         <SigningUsageNotice state={allowanceState} compact />
       </div>
-      <div className="sticky top-0 z-40 mb-3 rounded-lg border border-foreground/15 bg-background p-2 shadow-sm">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="mb-2 rounded-lg border border-foreground/15 bg-background p-2 shadow-sm">
+        <div role="toolbar" aria-label={t("Document tools")} className="flex flex-wrap items-center gap-2">
           <button type="button" disabled={drawing || !pdfReady} aria-pressed={activeTool === "draw"}
             onClick={toggleSigning}
-            className={`rounded-md px-4 py-2 text-sm font-medium ${activeTool === "draw" ? "border border-foreground/20" : "bg-[color:var(--color-accent)] text-white"}`}>
+            className={`${toolButtonClass("draw")} min-w-28`}>
             {activeTool === "draw" ? t("Done signing") : t("Sign")}
           </button>
-          <button type="button" disabled={drawing || !pdfReady} aria-pressed={activeTool === "text"} className={toolButtonClass("text")} onClick={() => setActiveTool("text")}>{t("Type")}</button>
-          <button type="button" disabled={drawing} aria-pressed={activeTool === "select"} className={toolButtonClass("select")} onClick={() => setActiveTool("select")}>{t("Scroll")}</button>
+          <button type="button" disabled={drawing || !pdfReady} aria-pressed={activeTool === "text"} className={toolButtonClass("text")} onClick={() => { setActiveTool("text"); setSignatureLibraryOpen(false); if (toolsRef.current) toolsRef.current.open = false; }}>{t("Type")}</button>
+          <button type="button" disabled={drawing} aria-pressed={activeTool === "select"} className={toolButtonClass("select")} onClick={() => { setActiveTool("select"); setSignatureLibraryOpen(false); if (toolsRef.current) toolsRef.current.open = false; }}>{t("Scroll")}</button>
           <button type="button" onClick={undoTextMove} disabled={drawing || !pdfReady || undoableMoves.length === 0}
             aria-label={t("Undo text move")} className="rounded-md border px-3 py-2 text-sm disabled:opacity-40">{t("Undo move")}</button>
-          {activeTool !== "draw" && <button type="button" onClick={() => setSignatureLibraryOpen((open) => !open)} disabled={drawing}
+          {activeTool !== "draw" && <button type="button" onClick={() => { setSignatureLibraryOpen((open) => !open); if (toolsRef.current) toolsRef.current.open = false; }} disabled={drawing}
             aria-expanded={signatureLibraryOpen} aria-controls="signature-library" className="rounded-md border px-3 py-2 text-sm">{t("Saved signatures")}</button>}
           {activeTool === "draw" && inkStrokes.some((stroke) => stroke.page === page) && <button type="button" onClick={undoInk} disabled={drawing} className="px-2 py-2 text-sm underline">{t("Undo")}</button>}
-          <div className="ml-auto flex items-center gap-1">
-            <button type="button" onClick={() => handleScaleChange("decrease")} disabled={drawing} aria-label={t("Zoom out")} className="rounded border px-3 py-2">−</button>
-            <button type="button" onClick={fitWidth} disabled={drawing || !pdfReady} aria-label={t("Fit page width")} title={t("Fit page width")} className="min-w-12 px-1 py-2 text-xs">{Math.round(scale * 100)}%</button>
-            <button type="button" onClick={() => handleScaleChange("increase")} disabled={drawing} aria-label={t("Zoom in")} className="rounded border px-3 py-2">+</button>
-          </div>
-        </div>
-        {activeTool === "select" && editableInkGroup && <div className="mt-2 flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => rotateDrawnSignature(-ROTATION_STEP)} disabled={!editableInkGroup || drawing || !pdfReady}
-            aria-label={t("Rotate signature left 15 degrees")} className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">{t("↶ Rotate left")}</button>
-          <button type="button" onClick={() => rotateDrawnSignature(ROTATION_STEP)} disabled={!editableInkGroup || drawing || !pdfReady}
-            aria-label={t("Rotate signature right 15 degrees")} className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">{t("↷ Rotate right")}</button>
-          <button type="button" onClick={deleteDrawnSignature} disabled={!editableInkGroup || drawing}
-            className="min-h-10 rounded-md border border-red-700 bg-background px-3 py-2 text-sm text-red-700 disabled:opacity-50 dark:text-red-400">{t("Delete signature")}</button>
-          <button type="button" onClick={() => void saveDocumentInk()} disabled={savingInk || drawing || !editableInkGroup || status === "loading"}
-            className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">{savingInk ? t("Saving…") : isSignedIn ? t("Save signature for next time") : t("Sign in to save signature")}</button>
-          {saveInkMessage && <span role="status" className="text-xs text-foreground/70">{t(saveInkMessage)}</span>}
-        </div>}
-        <p className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? t("Draw your signature. ShapeAssist is automatic. Tap Done signing, then move, resize or freely rotate your signature.") : activeTool === "select" ? t("Scroll or pinch to navigate. Choose Type to fill a field or add text.") : activeTool === "text" ? t("Tap a highlighted field to fill it, or tap anywhere to add text.") : t("Tap the document to add {tool}.", { tool: t(TOOL_LABELS[activeTool]).toLowerCase() })}</p>
-      </div>
-      <section hidden={!signatureLibraryOpen} id="signature-library" aria-label={t("Saved signatures")} className="mb-3 rounded-lg border border-foreground/15 p-3">
-        <p className="mb-3 text-sm text-foreground/70">{isSignedIn ? t("Saved signatures stay in your account for your next visit. Tap one, then tap the document to place it.") : t("Sign in to access your saved signatures. You can still type or upload a signature below.")}</p>
-        {!isSignedIn && <button type="button" disabled={savingInk || status === "loading"} className="mb-3 rounded border px-3 py-2 text-sm" onClick={() => {
-          setSavingInk(true);
-          void preserveForSignIn().then(() => router.push("/login?next=/sign")).catch(() => setSaveInkMessage("Could not keep your document ready for sign-in. Please try again.")).finally(() => setSavingInk(false));
-        }}>{t("Log in")}</button>}
-        {saveInkMessage && <p role="status" className="mb-3 text-sm">{t(saveInkMessage)}</p>}
-        <SignatureTools key={signatureLibraryVersion} onSignature={handleSignature} drawingEnabled={false} />
-      </section>
-      {sigDataUrl && !signaturePlaced && <p role="status" className="mb-3 text-sm">{t("Tap the document to place your chosen signature.")}</p>}
-      <details ref={toolsRef} className="mb-3 rounded-lg border border-foreground/15 px-3 py-2">
-        <summary className="cursor-pointer text-sm">{t("More tools")}</summary>
-        <div className="mt-3 space-y-3">
+      <details ref={toolsRef} onToggle={(event) => { if (event.currentTarget.open) setSignatureLibraryOpen(false); }}>
+        <summary className="list-none cursor-pointer rounded-md border px-3 py-2 text-sm [&::-webkit-details-marker]:hidden">{t("More tools")}</summary>
+        <div className="absolute inset-x-0 top-full z-50 mt-1 space-y-3 overflow-auto rounded-lg border border-foreground/15 bg-background p-3 shadow-lg" style={{ maxHeight: panelMaxHeight }}>
           <div className="flex flex-wrap gap-2">{(["select", "text", "initials", "date", "checkbox"] as EditorTool[]).map((tool) => <button key={tool} type="button" className={toolButtonClass(tool)} disabled={drawing} onClick={() => { setActiveTool(tool); if (toolsRef.current) toolsRef.current.open = false; }}>{tool === "select" ? t("Navigate") : t(TOOL_LABELS[tool])}</button>)}</div>
           <button type="button" className="rounded border px-3 py-2 text-sm" onClick={() => { setSignatureLibraryOpen(true); if (toolsRef.current) toolsRef.current.open = false; }}>{t("Saved, typed or uploaded signature")}</button>
           <details><summary className="cursor-pointer text-sm">{t("Pen options")}</summary><div className="mt-3 flex flex-wrap gap-4 text-sm">
@@ -408,12 +401,41 @@ function SigningEditor() {
           <Link href="/upload" className="inline-block text-sm underline">{t("Choose another PDF")}</Link>
         </div>
       </details>
-      {numPages > 1 && <div className="mb-2 flex items-center justify-center gap-4 text-sm">
+          <div className="ml-auto flex items-center gap-1">
+            <button type="button" onClick={() => handleScaleChange("decrease")} disabled={drawing} aria-label={t("Zoom out")} className="rounded border px-3 py-2">−</button>
+            <button type="button" onClick={fitWidth} disabled={drawing || !pdfReady} aria-label={t("Fit page width")} title={t("Fit page width")} className="min-w-12 px-1 py-2 text-xs">{Math.round(scale * 100)}%</button>
+            <button type="button" onClick={() => handleScaleChange("increase")} disabled={drawing} aria-label={t("Zoom in")} className="rounded border px-3 py-2">+</button>
+          </div>
+        </div>
+        {activeTool === "select" && editableInkGroup && <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => rotateDrawnSignature(-ROTATION_STEP)} disabled={!editableInkGroup || drawing || !pdfReady}
+            aria-label={t("Rotate signature left 15 degrees")} className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">{t("↶ Rotate left")}</button>
+          <button type="button" onClick={() => rotateDrawnSignature(ROTATION_STEP)} disabled={!editableInkGroup || drawing || !pdfReady}
+            aria-label={t("Rotate signature right 15 degrees")} className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">{t("↷ Rotate right")}</button>
+          <button type="button" onClick={deleteDrawnSignature} disabled={!editableInkGroup || drawing}
+            className="min-h-10 rounded-md border border-red-700 bg-background px-3 py-2 text-sm text-red-700 disabled:opacity-50 dark:text-red-400">{t("Delete signature")}</button>
+          <button type="button" onClick={() => void saveDocumentInk()} disabled={savingInk || drawing || !editableInkGroup || status === "loading"}
+            className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">{savingInk ? t("Saving…") : isSignedIn ? t("Save signature for next time") : t("Sign in to save signature")}</button>
+          {saveInkMessage && <span role="status" className="text-xs text-foreground/70">{t(saveInkMessage)}</span>}
+        </div>}
+        <p data-editor-help className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? t("Draw your signature. ShapeAssist is automatic. Tap Done signing, then move, resize or freely rotate your signature.") : activeTool === "select" ? t("Scroll or pinch to navigate. Choose Type to fill a field or add text.") : activeTool === "text" ? t("Tap a highlighted field to fill it, or tap anywhere to add text.") : t("Tap the document to add {tool}.", { tool: t(TOOL_LABELS[activeTool]).toLowerCase() })}</p>
+      <section hidden={!signatureLibraryOpen} id="signature-library" aria-label={t("Saved signatures")} className="absolute inset-x-0 top-full z-50 mt-1 overflow-auto rounded-lg border border-foreground/15 bg-background p-3 shadow-lg" style={{ maxHeight: panelMaxHeight }}>
+        <p className="mb-3 text-sm text-foreground/70">{isSignedIn ? t("Saved signatures stay in your account for your next visit. Tap one, then tap the document to place it.") : t("Sign in to access your saved signatures. You can still type or upload a signature below.")}</p>
+        {!isSignedIn && <button type="button" disabled={savingInk || status === "loading"} className="mb-3 rounded border px-3 py-2 text-sm" onClick={() => {
+          setSavingInk(true);
+          void preserveForSignIn().then(() => router.push("/login?next=/sign")).catch(() => setSaveInkMessage("Could not keep your document ready for sign-in. Please try again.")).finally(() => setSavingInk(false));
+        }}>{t("Log in")}</button>}
+        {saveInkMessage && <p role="status" className="mb-3 text-sm">{t(saveInkMessage)}</p>}
+        <SignatureTools key={signatureLibraryVersion} onSignature={handleSignature} drawingEnabled={false} />
+      </section>
+      </div>
+      <div aria-label={t("Document pages")} className="mb-2 flex shrink-0 items-center justify-center gap-4 text-sm">
         <button type="button" onClick={() => handlePageChange("prev")} disabled={drawing || page <= 1} aria-label={t("Previous page")} className="rounded border px-3 py-1 disabled:opacity-30">‹</button>
         <span>{t("Page")}{" "}{page}{" "}{t("of")}{" "}{numPages}</span>
         <button type="button" onClick={() => handlePageChange("next")} disabled={drawing || page >= numPages} aria-label={t("Next page")} className="rounded border px-3 py-1 disabled:opacity-30">›</button>
-      </div>}
-      <div ref={viewerContainerRef} aria-label={t("Scrollable PDF document")} className={`relative isolate z-0 max-h-[65svh] min-h-64 overflow-auto overscroll-contain rounded-md border p-3 ${activeTool === "select" ? "cursor-grab" : ""}`}
+      </div>
+      </div>
+      <div ref={viewerContainerRef} aria-label={t("Scrollable PDF document")} className={`relative isolate z-0 min-h-0 flex-1 overflow-auto overscroll-contain rounded-md border p-3 ${activeTool === "select" ? "cursor-grab" : ""}`}
         style={{ touchAction: activeTool === "draw" ? "none" : "pan-x pan-y pinch-zoom" }}
         onClick={(event) => {
           if (activeTool === "select" && (event.target === event.currentTarget ||
@@ -421,6 +443,7 @@ function SigningEditor() {
         }}
         onPointerDown={(event) => {
           if (activeTool !== "select" || event.pointerType !== "mouse" || event.button !== 0 || !(event.target instanceof HTMLElement) || event.target.dataset.navigationSurface !== "true") return;
+          if (event.target.closest("[data-text-item]")) return;
           const node = event.currentTarget;
           panRef.current = { id: event.pointerId, x: event.clientX, y: event.clientY, left: node.scrollLeft, top: node.scrollTop };
           node.setPointerCapture(event.pointerId);
@@ -439,10 +462,11 @@ function SigningEditor() {
           {pdfSize && pdfReady && activeTool === "select" && <InkSelectionLayer strokes={inkStrokes} page={page} scale={scale} size={pdfSize} selected={selectedInk} onSelect={setSelectedInk} onChange={(next) => { setInkStrokes(next); setRedoInk([]); }} />}
         </div>
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-foreground/10 bg-background px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-lg"><div className="mx-auto max-w-5xl">
+      <div ref={footerRef} className="relative z-40 mt-2 shrink-0 border-t border-foreground/10 bg-background pt-3 pb-[env(safe-area-inset-bottom)]"><div className="mx-auto max-w-5xl">
         <Finalizer onBeforeSignIn={preserveForSignIn} resumePreview={Boolean(draft)} sigDataUrl={signaturePlaced ? sigDataUrl : null} page={signaturePage} x={pos.x} y={pos.y} width={signatureSize.width} height={signatureSize.height} rotation={signatureRotation}
           textElements={textElements} inkStrokes={inkStrokes} drawing={drawing || !pdfReady} pdfViewportSize={pdfPageSizes[signaturePage]} pdfViewportSizes={pdfPageSizes} />
       </div></div>
+      </div>
     </div>
   );
 }

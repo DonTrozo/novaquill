@@ -12,6 +12,7 @@ import DocumentInkLayer, { imageOfInk } from "@/components/DocumentInkLayer";
 import { inkGroupId, rotateInkGroup, type InkStroke } from "@/lib/documentInk";
 import InkSelectionLayer from "@/components/InkSelectionLayer";
 import { scaleText } from "@/lib/textLayout";
+import { rememberTextMove, restoreTextMove, type MovableText } from "@/lib/textMoveHistory";
 import type { DetectedField } from "@/lib/pdfFields";
 import DocumentFillLayer, { type EditorTool, type TextElement } from "@/components/DocumentFillLayer";
 import { useRef, useState } from "react";
@@ -94,6 +95,15 @@ function SigningEditor() {
   const toolsRef = useRef<HTMLDetailsElement | null>(null);
   const zoomScrollRef = useRef<{ left: number; top: number } | null>(null);
   const [textElements, setTextElements] = useState<TextElement[]>(draft?.textElements ?? []);
+  const [textMoves, setTextMoves] = useState<MovableText[]>([]);
+  const undoableMoves = textMoves.filter((move) => textElements.some((item) => item.id === move.id));
+  const undoTextMove = () => {
+    const previous = undoableMoves.at(-1);
+    if (!previous) return;
+    setTextElements((current) => current.map((item) => item.id === previous.id ? restoreTextMove(item, previous, scale) : item));
+    setTextMoves(undoableMoves.slice(0, -1));
+    if (previous.page !== page) { setPdfReady(false); setPage(previous.page); }
+  };
   const [detectedFields, setDetectedFields] = useState<DetectedField[]>([]);
   const [selectedInk, setSelectedInk] = useState<string | null>(null);
   const inkGroupRef = useRef<string | null>(null);
@@ -337,6 +347,8 @@ function SigningEditor() {
             {activeTool === "draw" ? t("Done signing") : t("Sign")}
           </button>
           <button type="button" disabled={drawing || !pdfReady} aria-pressed={activeTool === "text"} className={toolButtonClass("text")} onClick={() => setActiveTool((tool) => tool === "text" ? "select" : "text")}>{activeTool === "text" ? t("Done") : t("Text")}</button>
+          <button type="button" onClick={undoTextMove} disabled={drawing || !pdfReady || undoableMoves.length === 0}
+            aria-label={t("Undo text move")} className="rounded-md border px-3 py-2 text-sm disabled:opacity-40">{t("Undo move")}</button>
           {activeTool !== "draw" && <button type="button" onClick={() => setSignatureLibraryOpen((open) => !open)} disabled={drawing}
             aria-expanded={signatureLibraryOpen} aria-controls="signature-library" className="rounded-md border px-3 py-2 text-sm">{t("Saved signatures")}</button>}
           {activeTool === "draw" && inkStrokes.some((stroke) => stroke.page === page) && <button type="button" onClick={undoInk} disabled={drawing} className="px-2 py-2 text-sm underline">{t("Undo")}</button>}
@@ -415,6 +427,7 @@ function SigningEditor() {
         <div className="relative inline-block min-w-fit">
           <PdfViewer onFields={setDetectedFields} onSize={handlePdfSize} onMeta={({ numPages }) => setNumPages(numPages)} page={page} scale={scale} />
           {pdfSize && pdfReady && <DocumentFillLayer scale={scale} pdfSize={pdfSize} page={page} activeTool={activeTool === "draw" ? "select" : activeTool}
+            onTextMove={(item) => setTextMoves((current) => [...current.slice(-49), rememberTextMove(item, scale)])}
             sigDataUrl={sigDataUrl} signaturePlaced={signaturePlaced && signaturePage === page} signaturePosition={pos} signatureSize={signatureSize} signatureRotation={signatureRotation}
             detectedFields={detectedFields} onFieldPlaced={placeDetectedField} textElements={textElements} onToolPlaced={handleToolPlaced} onSignaturePositionChange={setPos} onSignatureSizeChange={setSignatureSize} onSignatureRotationChange={setSignatureRotation} onTextElementsChange={setTextElements} onClearSignature={clearSignature} />}
           {pdfSize && pdfReady && <DocumentInkLayer size={pdfSize} scale={scale} page={page} enabled={activeTool === "draw"} strokes={inkStrokes} color={inkColor} penWidth={inkWidth}

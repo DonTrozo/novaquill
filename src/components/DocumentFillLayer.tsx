@@ -68,6 +68,7 @@ export default function DocumentFillLayer({
   onClearSignature,
   detectedFields = [],
   onFieldPlaced,
+  onTextMove,
 }: {
   pdfSize: Size;
   scale?: number;
@@ -87,6 +88,7 @@ export default function DocumentFillLayer({
   onClearSignature: () => void;
   detectedFields?: DetectedField[];
   onFieldPlaced?: (field: DetectedField) => void;
+  onTextMove?: (item: TextElement) => void;
 }) {
   const { t } = useLanguage();
   const [selected, setSelected] = useState<Selected>(null);
@@ -105,6 +107,7 @@ export default function DocumentFillLayer({
   const canEditSelection = activeTool === "select" || activeTool === "text";
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
   const scrolled = useRef(false);
+  const moveRemembered = useRef(false);
 
   const updateText = (id: string, updates: Partial<TextElement>) => {
     const target = textElements.find((item) => item.id === id);
@@ -118,6 +121,7 @@ export default function DocumentFillLayer({
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
+    moveRemembered.current = false;
     setDragState({ ...state, startClientX: event.clientX, startClientY: event.clientY });
   };
 
@@ -156,10 +160,14 @@ export default function DocumentFillLayer({
       });
     } else {
       const item = textElements.find((item) => item.id === dragState.id);
+      const x = clamp(dragState.startX + dx, 0, pdfSize.width - dragState.startWidth);
+      const y = clamp(dragState.startY + dy, 0, pdfSize.height - dragState.startHeight);
+      if (!item || (x === item.x && y === item.y)) return;
+      if (!moveRemembered.current) { onTextMove?.(item); moveRemembered.current = true; }
       updateText(dragState.id, {
         ...(item?.fieldName ? { fieldName: undefined, sourceFieldName: item.fieldName } : {}),
-        x: clamp(dragState.startX + dx, 0, pdfSize.width - dragState.startWidth),
-        y: clamp(dragState.startY + dy, 0, pdfSize.height - dragState.startHeight),
+        x,
+        y,
       });
     }
   };
@@ -312,10 +320,14 @@ export default function DocumentFillLayer({
                     if (!direction) return;
                     event.preventDefault(); event.stopPropagation();
                     const step = (event.shiftKey ? 10 : 1) * scale;
+                    const x = clamp(item.x + direction[0] * step, 0, Math.max(0, pdfSize.width - item.width));
+                    const y = clamp(item.y + direction[1] * step, 0, Math.max(0, pdfSize.height - item.height));
+                    if (x === item.x && y === item.y) return;
+                    onTextMove?.(item);
                     updateText(item.id, {
                       ...(item.fieldName ? { fieldName: undefined, sourceFieldName: item.fieldName } : {}),
-                      x: clamp(item.x + direction[0] * step, 0, Math.max(0, pdfSize.width - item.width)),
-                      y: clamp(item.y + direction[1] * step, 0, Math.max(0, pdfSize.height - item.height)),
+                      x,
+                      y,
                     });
                   }}
                 >{t("↔ Move")}</button>{t("Size")}<TextFontSize value={layout.size / scale} label={t("Text font size in points")} onChange={(points) => updateText(item.id, { fontSize: points * scale, preferredFontSize: points * scale })} />

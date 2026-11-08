@@ -105,6 +105,13 @@ export default function Finalizer({
   const isPreviewCurrent = Boolean(preview && preview.version === currentVersion);
 
   useEffect(() => {
+    if (!isPreviewCurrent) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, [isPreviewCurrent]);
+
+  useEffect(() => {
     return () => {
       if (preview?.url) URL.revokeObjectURL(preview.url);
     };
@@ -265,12 +272,13 @@ export default function Finalizer({
       )}
 
       {preview && isPreviewCurrent && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-xl bg-background shadow-2xl">
-            <div className="flex flex-col gap-2 border-b border-foreground/10 p-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="fixed inset-0 z-[100] flex h-dvh items-center justify-center overflow-hidden bg-black/60 sm:p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="pdf-preview-title"
+            className="isolate flex h-full min-h-0 min-w-0 w-full max-w-5xl flex-col overflow-hidden bg-background shadow-2xl sm:rounded-xl">
+            <div className="relative z-20 flex shrink-0 flex-col gap-2 border-b border-foreground/10 bg-background p-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h2 className="text-lg font-semibold">{t("Review your signed PDF")}</h2>
-                <p className="mt-1 text-sm text-foreground/70">{t("Check every page before downloading. A free document credit is used only on the first download of this completed version. Pro has unlimited signing.")}</p>
+                <h2 id="pdf-preview-title" className="text-lg font-semibold">{t("Review your signed PDF")}</h2>
+                <p className="mt-1 text-xs text-foreground/70 sm:text-sm">{t("Check every page before downloading. A free document credit is used only on the first download of this completed version. Pro has unlimited signing.")}</p>
               </div>
               <button
                 type="button"
@@ -279,22 +287,22 @@ export default function Finalizer({
                 className="rounded-md border border-foreground/20 px-3 py-1.5 text-sm hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50"
               >{t("Back to Edit")}</button>
             </div>
-            <div className="min-h-0 flex-1 p-4">
+            <div className="relative isolate z-0 min-h-0 min-w-0 flex-1 overflow-hidden p-3">
               <PdfDocumentPreview blob={preview.blob} />
             </div>
-            <div className="grid gap-2 border-t border-foreground/10 p-4 sm:flex sm:items-center sm:justify-end">
+            <div data-preview-actions className="relative z-30 flex shrink-0 flex-col gap-2 border-t border-foreground/10 bg-background px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-lg sm:flex-row sm:items-center sm:justify-end">
               {error && <p role="alert" className="text-sm text-red-600 sm:mr-auto">{t(error)} {error.includes("Upgrade to Pro") && <a href="/pricing" className="underline">{t("View Pro plans")}</a>}</p>}
               <button
                 type="button"
                 onClick={clearPreview}
                 disabled={isConfirming || status === "loading"}
-                className="rounded-md border border-foreground/20 px-4 py-2 text-sm transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50"
+                className="hidden rounded-md border border-foreground/20 px-4 py-2 text-sm transition-colors hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-50 sm:block"
               >{t("Back to Edit")}</button>
               <button
                 type="button"
                 onClick={onConfirmDownload}
                 disabled={isConfirming || status === "loading"}
-                className="rounded-md bg-[color:var(--color-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="min-h-11 rounded-md bg-[color:var(--color-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isConfirming ? t("Preparing download...") : status === "loading" ? t("Checking sign-in…") : status === "authenticated" ? t("Download Signed PDF") : t("Sign in & Download")}
               </button>

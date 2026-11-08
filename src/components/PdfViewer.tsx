@@ -7,28 +7,32 @@ import { useUpload } from "@/context/UploadContext";
 import { getDocument, GlobalWorkerOptions, OPS, type PDFDocumentProxy } from "pdfjs-dist";
 import { detectPdfFields, type DetectedField } from "@/lib/pdfFields";
 import LoadingSpinner from "./LoadingSpinner";
+import { fitPreviewPage } from "@/lib/previewLayout";
 
 if (typeof window !== "undefined") GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
 type Size = { width: number; height: number };
 
-function PdfCanvas({ source, page, scale, onSize, onMeta, onFields }: {
-  source: Blob | null; page: number; scale: number;
+function PdfCanvas({ source, page, scale, onSize, onMeta, onFields, onPageSize, preview = false }: {
+  source: Blob | null; page: number; scale: number | null;
   onSize?: (size: Size) => void;
   onMeta?: (meta: { numPages: number }) => void;
   onFields?: (fields: DetectedField[]) => void;
+  onPageSize?: (size: Size) => void;
+  preview?: boolean;
 }) {
   const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const onSizeRef = useRef(onSize);
   const onMetaRef = useRef(onMeta);
   const onFieldsRef = useRef(onFields);
+  const onPageSizeRef = useRef(onPageSize);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [retry, setRetry] = useState(0);
 
-  useEffect(() => { onSizeRef.current = onSize; onMetaRef.current = onMeta; onFieldsRef.current = onFields; }, [onSize, onMeta, onFields]);
+  useEffect(() => { onSizeRef.current = onSize; onMetaRef.current = onMeta; onFieldsRef.current = onFields; onPageSizeRef.current = onPageSize; }, [onSize, onMeta, onFields, onPageSize]);
 
   // Parse once per file, rather than reloading the whole PDF on every zoom/page change.
   useEffect(() => {
@@ -60,6 +64,9 @@ function PdfCanvas({ source, page, scale, onSize, onMeta, onFields }: {
     setError(null);
     void pdf.getPage(page).then(async (pg) => {
       if (cancelled) return;
+      const natural = pg.getViewport({ scale: 1 });
+      onPageSizeRef.current?.({ width: natural.width, height: natural.height });
+      if (scale === null) return; // Wait for the preview's measured fit before its first render.
       const viewport = pg.getViewport({ scale });
       if (onFieldsRef.current) {
         // Field detection must not prevent an otherwise valid PDF from rendering.
@@ -101,7 +108,7 @@ function PdfCanvas({ source, page, scale, onSize, onMeta, onFields }: {
   }, [pdf, page, scale]);
 
   return (
-    <div className="relative min-h-[280px] w-full overflow-auto">
+    <div className={preview ? "relative w-fit" : "relative min-h-[280px] w-full overflow-auto"}>
       <canvas ref={canvasRef} className="block max-w-none bg-white" role="img" aria-label={t("PDF page {page}", { page })} />
       {isLoading && <div className="absolute inset-0 flex items-center justify-center bg-background/70"><LoadingSpinner text={t("Loading PDF...")} /></div>}
       {error && <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/90 p-4 text-center">
@@ -127,17 +134,44 @@ export function PdfDocumentPreview({ blob }: { blob: Blob }) {
   const { t } = useLanguage();
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(1);
-  const [scale, setScale] = useState(0.8);
-  return <div className="grid gap-3">
-    <div className="flex flex-wrap items-center justify-center gap-2">
-      <button className="rounded border px-3 py-2 disabled:opacity-40" onClick={() => setPage((value) => value - 1)} disabled={page <= 1}>{t("Previous")}</button>
+  const [zoom, setZoom] = useState<number | null>(null);
+  const [sizes, setSizes] = useState<Record<number, Size>>({});
+  const [viewport, setViewport] = useState<Size | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = scroller.current;
+    if (!node) return;
+    const measure = () => setViewport({ width: node.clientWidth, height: node.clientHeight });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const size = sizes[page];
+  const fitted = size && viewport ? fitPreviewPage(size, viewport) : null;
+  const scale = zoom ?? fitted;
+  const fitPage = () => {
+    setZoom(null);
+    scroller.current?.scrollTo(0, 0);
+  };
+  const changePage = (direction: number) => {
+    setPage((value) => Math.max(1, Math.min(total, value + direction)));
+    fitPage();
+  };
+  return <div className="flex h-full min-h-0 min-w-0 flex-col gap-2">
+    <div className="relative z-10 flex shrink-0 flex-wrap items-center justify-center gap-2 bg-background">
+      <button className="rounded border px-3 py-2 disabled:opacity-40" onClick={() => changePage(-1)} disabled={page <= 1}>{t("Previous")}</button>
       <span className="text-sm">{t("Page")}{" "}{page}{" "}{t("of")}{" "}{total}</span>
-      <button className="rounded border px-3 py-2 disabled:opacity-40" onClick={() => setPage((value) => value + 1)} disabled={page >= total}>{t("Next")}</button>
-      <button className="rounded border px-3 py-2" aria-label={t("Zoom preview out")} onClick={() => setScale((value) => Math.max(0.3, value - 0.1))}>−</button>
-      <button className="rounded border px-3 py-2" aria-label={t("Zoom preview in")} onClick={() => setScale((value) => Math.min(2, value + 0.1))}>+</button>
+      <button className="rounded border px-3 py-2 disabled:opacity-40" onClick={() => changePage(1)} disabled={page >= total}>{t("Next")}</button>
+      <button className="rounded border px-3 py-2 disabled:opacity-40" disabled={scale === null} aria-label={t("Zoom preview out")} onClick={() => setZoom(Math.max(0.001, (scale ?? 1) / 1.25))}>−</button>
+      <button className="rounded border px-3 py-2" aria-label={t("Fit whole preview page")} onClick={fitPage}>{t("Fit page")}</button>
+      <button className="rounded border px-3 py-2 disabled:opacity-40" disabled={scale === null} aria-label={t("Zoom preview in")} onClick={() => setZoom(Math.min(4, (scale ?? 1) * 1.25))}>+</button>
     </div>
-    <div className="h-[55vh] overflow-auto rounded border bg-white">
-      <PdfCanvas source={blob} page={page} scale={scale} onMeta={({ numPages }) => setTotal(numPages)} />
+    <div ref={scroller} aria-label={t("Scrollable PDF preview")} className="relative isolate z-0 min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain rounded border bg-foreground/5 p-3">
+      <div className="mx-auto w-fit">
+        <PdfCanvas preview source={blob} page={page} scale={scale} onMeta={({ numPages }) => setTotal(numPages)}
+          onPageSize={(next) => setSizes((current) => current[page]?.width === next.width && current[page]?.height === next.height ? current : { ...current, [page]: next })} />
+      </div>
     </div>
   </div>;
 }

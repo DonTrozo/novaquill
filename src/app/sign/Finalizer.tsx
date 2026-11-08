@@ -312,7 +312,7 @@ export default function Finalizer({
       )}
 
       {!canFinalize && (
-        <div className="text-center text-xs text-foreground/60">{t("Add a signature, text, date, initials, or checkbox to preview the final PDF")}</div>
+        <div data-finalize-hint className="text-center text-xs text-foreground/60">{t("Add a signature, text, date, initials, or checkbox to preview the final PDF")}</div>
       )}
     </div>
   );

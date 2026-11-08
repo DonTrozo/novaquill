@@ -25,3 +25,27 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Keep the uploaded-document editor in the viewport, while account notices
+   retain their normal space above it. Other pages keep their usual layout. */
+body:has([data-pdf-editor]) {
+  display: flex;
+  height: 100dvh;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body:has([data-pdf-editor]) > header {
+  display: none;
+}
+
+body:has([data-pdf-editor]) > aside {
+  flex-shrink: 0;
+}
+
+@media (max-height: 500px) {
+  [data-pdf-editor] [data-editor-help],
+  [data-pdf-editor] [data-finalize-hint] {
+    display: none;
+  }
+}

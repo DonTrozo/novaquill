@@ -276,7 +276,8 @@ function SigningEditor() {
         padding: 2 * scale,
       },
     ]);
-    if (tool !== "text") setActiveTool("select");
+    if (tool === "initials") setActiveTool("text");
+    else if (tool !== "text") setActiveTool("select");
   };
 
   const handleToolPlaced = (point: Point) => {

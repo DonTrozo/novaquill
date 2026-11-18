@@ -1,0 +1,1 @@
+`object-stream-input.pdf` is the public, reduced Microsoft PowerPoint reproduction attached by CleyFaye to https://github.com/Hopding/pdf-lib/issues/1224 (https://github.com/Hopding/pdf-lib/files/8589799/in.pdf). The report demonstrates PDF reader incompatibility after pdf-lib 1.17.1 saves the input using its default object-stream writer. It is used only as a regression fixture.

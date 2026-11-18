@@ -71,6 +71,7 @@ export default function Finalizer({
   const [isConfirming, setIsConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState>(null);
+  const [previewReady, setPreviewReady] = useState(false);
 
   const hasDrawableText = textElements.some((item) => item.fieldName || item.text.trim().length > 0);
   const canFinalize = Boolean(sigDataUrl) || hasDrawableText || inkStrokes.length > 0;
@@ -118,6 +119,7 @@ export default function Finalizer({
   }, [preview?.url]);
 
   function clearPreview() {
+    setPreviewReady(false);
     setPreview((current) => {
       if (current?.url) URL.revokeObjectURL(current.url);
       return null;
@@ -151,6 +153,7 @@ export default function Finalizer({
     }
 
     setIsProcessing(true);
+    setPreviewReady(false);
     setError(null);
 
     try {
@@ -189,6 +192,7 @@ export default function Finalizer({
   }
 
   async function onConfirmDownload() {
+    if (!previewReady) return;
     if (!preview || !isPreviewCurrent) {
       setError("Finish and check the latest preview before downloading.");
       return;
@@ -288,7 +292,7 @@ export default function Finalizer({
               >{t("Back to Edit")}</button>
             </div>
             <div className="relative isolate z-0 min-h-0 min-w-0 flex-1 overflow-hidden p-3">
-              <PdfDocumentPreview blob={preview.blob} />
+              <PdfDocumentPreview key={preview.url} blob={preview.blob} onReadyChange={setPreviewReady} />
             </div>
             <div data-preview-actions className="relative z-30 flex shrink-0 flex-col gap-2 border-t border-foreground/10 bg-background px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-lg sm:flex-row sm:items-center sm:justify-end">
               {error && <p role="alert" className="text-sm text-red-600 sm:mr-auto">{t(error)} {error.includes("Upgrade to Pro") && <a href="/pricing" className="underline">{t("View Pro plans")}</a>}</p>}
@@ -301,7 +305,7 @@ export default function Finalizer({
               <button
                 type="button"
                 onClick={onConfirmDownload}
-                disabled={isConfirming || status === "loading"}
+                disabled={!previewReady || isConfirming || status === "loading"}
                 className="min-h-11 rounded-md bg-[color:var(--color-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isConfirming ? t("Preparing download...") : status === "loading" ? t("Checking sign-in…") : status === "authenticated" ? t("Download Signed PDF") : t("Sign in & Download")}

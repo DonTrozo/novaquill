@@ -226,3 +226,64 @@ test('a ruled entry exports on the label baseline at every zoom', async () => {
     } finally { await task.destroy(); }
   }
 });
+
+test('export uses classic cross-reference tables for the documented reader-compatibility input', async () => {
+  const input = readFileSync(new URL('./fixtures/object-stream-input.pdf', import.meta.url));
+  const out = await buildSignedPdf({ pdfBytes: input, sigDataUrl: null, page: 1, x: 0, y: 0, width: 200, signatureHeight: 80, rotation: 0,
+    textElements: [{ id: 'compatibility', page: 1, x: 40, y: 40, width: 200, height: 32, fontSize: 12, text: 'Compatibility test' }], pdfViewportSizes: {} });
+  const text = Buffer.from(out).toString('latin1');
+  const offset = Number(/startxref\s+(\d+)\s+%%EOF/.exec(text)[1]);
+  assert.equal(text.slice(offset, offset + 4), 'xref');
+  assert.doesNotMatch(text, /\/Type\s*\/ObjStm/);
+  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const task = getDocument({ data: out.slice() });
+  try {
+    const preview = await task.promise;
+    assert.equal(preview.numPages, 1);
+    assert.match((await (await preview.getPage(1)).getTextContent()).items.map(item => item.str ?? '').join(' '), /Compatibility test/);
+  } finally { await task.destroy(); }
+});
+
+test('twelve-page completed PDF retains visible content, filled forms and signatures in independent readers', async () => {
+  const input = await PDFDocument.create();
+  const fields = input.getForm();
+  for (let number = 1; number <= 12; number++) {
+    const page = input.addPage([600, 800]);
+    page.drawText(`Original page ${number}`, { x: 50, y: 700 });
+    const field = fields.createTextField(`name-${number}`);
+    field.setText(`Existing form value ${number}`);
+    field.addToPage(page, { x: 50, y: 550, width: 350, height: 30 });
+  }
+  const textElements = Array.from({ length: 12 }, (_, index) => ({ id: `edit-${index}`, page: index + 1, x: 50, y: 300, width: 300, height: 30, fontSize: 12, text: `Completed page ${index + 1}` }));
+  const inkStrokes = Array.from({ length: 12 }, (_, index) => ({ page: index + 1, points: [{ x: 60, y: 400 }, { x: 130, y: 430 }, { x: 180, y: 400 }], color: '#0000ff', width: 3, viewport: { width: 600, height: 800 } }));
+  const out = await buildSignedPdf({ pdfBytes: await input.save(), sigDataUrl: null, page: 12, x: 0, y: 0, width: 200, signatureHeight: 80, rotation: 0, textElements, inkStrokes, pdfViewportSizes: {} });
+  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const task = getDocument({ data: out.slice() });
+  try {
+    const preview = await task.promise;
+    assert.equal(preview.numPages, 12);
+    for (let number = 1; number <= 12; number++) {
+      const content = (await (await preview.getPage(number)).getTextContent()).items.map(item => item.str ?? '').join(' ');
+      assert.ok(content.includes(`Original page ${number}`));
+      assert.ok(content.includes(`Completed page ${number}`));
+      assert.ok(content.includes(`Existing form value ${number}`));
+    }
+  } finally { await task.destroy(); }
+  const folder = mkdtempSync(join(tmpdir(), 'novaquill-twelve-pages-'));
+  try {
+    const file = join(folder, 'completed.pdf'); writeFileSync(file, out);
+    const rendered = spawnSync('pdftoppm', ['-r', '36', file, join(folder, 'page')]);
+    assert.ifError(rendered.error);
+    assert.equal(rendered.status, 0, rendered.stderr.toString());
+    for (let number = 1; number <= 12; number++) {
+      const ppm = readFileSync(join(folder, `page-${String(number).padStart(2, '0')}.ppm`));
+      const header = /^P6\s+(\d+)\s+(\d+)\s+255\s/.exec(ppm.toString('latin1'));
+      assert.ok(header);
+      const pixels = ppm.subarray(header[0].length);
+      assert.ok(pixels.filter(value => value < 200).length > 200, `page ${number} must render real content`);
+      let blue = 0;
+      for (let i = 0; i < pixels.length; i += 3) if (pixels[i] < 100 && pixels[i + 1] < 100 && pixels[i + 2] > 150) blue++;
+      assert.ok(blue > 10, `page ${number} must render its signature`);
+    }
+  } finally { rmSync(folder, { recursive: true, force: true }); }
+});

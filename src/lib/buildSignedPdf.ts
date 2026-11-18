@@ -94,5 +94,7 @@ export async function buildSignedPdf({ pdfBytes, sigDataUrl, page, x, y, width, 
       // Ignore PDFs without AcroForm fields.
     }
 
-    return pdfDoc.save();
+    // Classic cross-reference tables are readable by recipients whose PDF
+    // viewers cannot recover object streams written for some imported PDFs.
+    return pdfDoc.save({ useObjectStreams: false, addDefaultPage: false });
 }

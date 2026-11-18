@@ -1,5 +1,7 @@
 // Portuguese interface copy. Document contents and signature text are never translated.
 export const portuguese: Record<string, string> = {
+  "PDF loading timed out. Please retry.": "O carregamento do PDF demorou demasiado. Tente novamente.",
+  "PDF rendering timed out. Please retry.": "A apresentação do PDF demorou demasiado. Tente novamente.",
   "I agree to the Terms of Service.": "Aceito os Termos de Serviço.",
   "Please review and accept the current Terms of Service.": "Consulte e aceite os Termos de Serviço actuais.",
   "Please review the current Terms of Service. Acceptance is separate from marketing consent.": "Consulte os Termos de Serviço actuais. A aceitação é independente do consentimento para marketing.",

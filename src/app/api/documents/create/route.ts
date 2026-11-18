@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  if (!hasProAccess(user)) return Response.json({ error: "Cloud storage requires Pro. The Free plan includes three completed documents per month." }, { status: 402 });
+  if (!hasProAccess(user)) return Response.json({ error: "Cloud storage requires Pro. The Free plan includes five completed documents per month." }, { status: 402 });
 
   const ip = (request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "local").split(",")[0]!.trim();
   if (!(await rateLimitOk(`doccreate:user:${user.id}`, 30, 60_000))) return new Response("Rate limit", { status: 429 });

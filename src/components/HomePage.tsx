@@ -178,7 +178,7 @@ export default function HomePage() {
           <div className="grid sm:grid-cols-3 gap-6">
             <div className="rounded-lg border border-foreground/10 p-5">
               <div className="font-medium mb-1">{t("Free & Pro")}</div>
-              <div className="text-foreground/70 text-sm">{t("Free: 3 documents per month. Pro: unlimited signing, cloud document storage and priority support.")}</div>
+              <div className="text-foreground/70 text-sm">{t("Free: 5 documents per month. Pro: unlimited signing, cloud document storage and priority support.")}</div>
             </div>
             <div className="rounded-lg border border-foreground/10 p-5">
               <div className="font-medium mb-1">{t("Private by design")}</div>

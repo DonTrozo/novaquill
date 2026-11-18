@@ -215,7 +215,7 @@ export default function DashboardPage() {
           <div className="rounded-lg border border-foreground/15 p-4">
             <div className="text-xs uppercase tracking-wide text-foreground/60">{t("Usage")}</div>
             <div className="text-xl font-semibold mt-1">
-              {sub === "PRO" ? t("{used} documents · Unlimited signing", { used }) : t("{used} / {limit} documents this month", { used, limit: state?.limit ?? 3 })}
+              {sub === "PRO" ? t("{used} documents · Unlimited signing", { used }) : t("{used} / {limit} documents this month", { used, limit: state?.limit ?? 5 })}
             </div>
           </div>
           <div className="rounded-lg border border-foreground/15 p-4">

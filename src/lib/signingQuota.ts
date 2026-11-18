@@ -1,5 +1,5 @@
 import { hasProAccess } from "./subscriptionAccess";
-export const FREE_DOCUMENT_LIMIT = 3;
+export const FREE_DOCUMENT_LIMIT = 5;
 
 export type QuotaUser = {
   subscription: "FREE" | "PRO";
@@ -31,7 +31,7 @@ export async function reserveDocumentCredit(store: {
     const user = await store.read();
     if (!user) return { status: 404, error: "Account not found" };
     const remaining = remainingDocuments(user, month);
-    if (remaining === 0) return { status: 402, error: "Your 3 free documents for this month have been used. Upgrade to Pro for unlimited signing." };
+    if (remaining === 0) return { status: 402, error: "Your 5 free documents for this month have been used. Upgrade to Pro for unlimited signing." };
     const used = (user.usageYearMonth === month ? user.docsUsedThisMonth : 0) + 1;
     if (await store.compareAndSet(user, month, used)) return { status: 200, used, remaining: remaining === null ? null : remaining - 1 };
   }

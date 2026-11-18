@@ -10,6 +10,6 @@ export async function checkSigningAllowance(): Promise<void> {
   const usage = await getSigningUsage();
   if (usage.subscription === "ANON") throw new Error("Please sign in before signing a document.");
   if (usage.limit !== null && usage.used >= usage.limit) {
-    throw new Error("Your 3 free documents for this month have been used. Upgrade to Pro for unlimited signing.");
+    throw new Error("Your 5 free documents for this month have been used. Upgrade to Pro for unlimited signing.");
   }
 }

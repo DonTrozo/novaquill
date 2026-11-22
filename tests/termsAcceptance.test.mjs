@@ -93,6 +93,7 @@ test('live checkout stays closed until explicit activation even when merchant cr
     const payfast=await loadSource(source('lib/payfast.ts'));
     const route=await loadSource(source('app/api/subscribe/[plan]/route.ts'),{
       'next-auth':{getServerSession:async()=>({user:{id:'owner-a'}})},'@/lib/auth':{authOptions:{}},'@/lib/prisma':{prisma:{user:{findUnique:async()=>({id:'owner-a',subscription:'FREE'})}}},
+      '@/lib/subscriptionAccess':await loadSource(source('lib/subscriptionAccess.ts')),
       '@/lib/payfast':payfast,'@/lib/subscription':subscription,'@/lib/fx':{eurToZar:async()=>{fxCalls++;return 180;}},'@/lib/checkoutReview':{checkoutReview:()=>{throw new Error('must not build payment');}},'@/lib/requestLocale':{requestLocale:async()=> 'en'},
     });
     const response=await route.GET(new Request('https://www.novaquill.co.za/api/subscribe/monthly'),{params:Promise.resolve({plan:'monthly'})});

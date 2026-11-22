@@ -1,5 +1,15 @@
 // Portuguese interface copy. Document contents and signature text are never translated.
 export const portuguese: Record<string, string> = {
+  "Line weight": "Espessura do traço",
+  "Completed signature line weight": "Espessura do traço da assinatura concluída",
+  "Placing initials…": "A colocar rubricas…",
+  "Place initials on all pages": "Colocar rubricas em todas as páginas",
+  "Initials placed on all pages.": "Rubricas colocadas em todas as páginas.",
+  "Undo placement on all pages": "Anular colocação em todas as páginas",
+  "Make these initials smaller before placing them on all pages.": "Reduza estas rubricas antes de as colocar em todas as páginas.",
+  "Could not place initials on all pages. Please try again.": "Não foi possível colocar as rubricas em todas as páginas. Tente novamente.",
+  "Owner": "Proprietário",
+  "Owner · Unlimited signing": "Proprietário · Assinaturas ilimitadas",
   "PDF loading timed out. Please retry.": "O carregamento do PDF demorou demasiado. Tente novamente.",
   "PDF rendering timed out. Please retry.": "A apresentação do PDF demorou demasiado. Tente novamente.",
   "I agree to the Terms of Service.": "Aceito os Termos de Serviço.",

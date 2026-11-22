@@ -2,6 +2,7 @@ import { hasProAccess } from "./subscriptionAccess";
 export const FREE_DOCUMENT_LIMIT = 5;
 
 export type QuotaUser = {
+  email?: string | null;
   subscription: "FREE" | "PRO";
   subscriptionPlan?: string | null;
   lastPaymentAt?: Date | string | null;

@@ -16,6 +16,7 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46]; // %PDF
 
 type UsageState = {
+  owner?: boolean;
   subscription: "FREE" | "PRO" | "ANON";
   used: number;
   limit: number | null;
@@ -220,7 +221,7 @@ export default function DashboardPage() {
           </div>
           <div className="rounded-lg border border-foreground/15 p-4">
             <div className="text-xs uppercase tracking-wide text-foreground/60">{t("Subscription")}</div>
-            <div className="text-xl font-semibold mt-1">{t(sub)}</div>
+            <div className="text-xl font-semibold mt-1">{state?.owner ? t("Owner") : t(sub)}</div>
           </div>
           <div className="rounded-lg border border-foreground/15 p-4">
             <div className="text-xs uppercase tracking-wide text-foreground/60">{t("Analytics events")}</div>

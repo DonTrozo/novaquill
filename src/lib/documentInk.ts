@@ -1,6 +1,7 @@
 export type InkPoint = { x: number; y: number };
 export type InkStroke = {
   groupId?: string;
+  repeatOf?: string;
   page: number;
   points: InkPoint[];
   color: string;
@@ -10,6 +11,42 @@ export type InkStroke = {
 
 export function inkGroupId(stroke: InkStroke) {
   return stroke.groupId ?? `page-${stroke.page}`;
+}
+
+export function setInkGroupWidth(strokes: InkStroke[], groupId: string, page: number, width: number): InkStroke[] {
+  if (!Number.isFinite(width) || width < 0.25) return strokes;
+  return strokes.map((stroke) => stroke.page === page && inkGroupId(stroke) === groupId ? { ...stroke, width } : stroke);
+}
+
+// Keep the drawing's physical size and its offset from the nearest page edges.
+// Each page gets its own group, so moving/deleting a copy stays page-specific.
+export function repeatInkGroup(strokes: InkStroke[], groupId: string, page: number, pages: { width: number; height: number }[]): InkStroke[] {
+  const selected = strokes.filter((stroke) => stroke.page === page && inkGroupId(stroke) === groupId);
+  const sourceSize = pages[page - 1];
+  if (!selected.length || !sourceSize || pages.some((size) => ![size.width, size.height].every((value) => Number.isFinite(value) && value > 0))) return strokes;
+  const original = selected.map((stroke) => ({ ...stroke,
+    width: stroke.width * sourceSize.width / stroke.viewport.width,
+    points: stroke.points.map((point) => ({ x: point.x * sourceSize.width / stroke.viewport.width, y: point.y * sourceSize.height / stroke.viewport.height })),
+    viewport: { ...sourceSize },
+  }));
+  const bounds = inkBounds(original);
+  if (!bounds) return strokes;
+  if (pages.some((size) => bounds.width > size.width || bounds.height > size.height)) throw new Error("Make these initials smaller before placing them on all pages.");
+  const repeatOf = selected[0]!.repeatOf ?? `${page}:${groupId}`;
+  const next = strokes.filter((stroke) => stroke.repeatOf !== repeatOf || stroke.page === page)
+    .map((stroke) => stroke.page === page && inkGroupId(stroke) === groupId ? { ...stroke, repeatOf } : stroke);
+  pages.forEach((size, index) => {
+    const targetPage = index + 1;
+    if (targetPage === page) return;
+    let dx = bounds.x + bounds.width / 2 > sourceSize.width / 2 ? size.width - sourceSize.width : 0;
+    let dy = bounds.y + bounds.height / 2 > sourceSize.height / 2 ? size.height - sourceSize.height : 0;
+    dx += Math.max(0, -bounds.x - dx) + Math.min(0, size.width - bounds.x - dx - bounds.width);
+    dy += Math.max(0, -bounds.y - dy) + Math.min(0, size.height - bounds.y - dy - bounds.height);
+    next.push(...original.map((stroke) => ({ ...stroke, groupId: `repeat:${repeatOf}:${targetPage}`, repeatOf, page: targetPage,
+      points: stroke.points.map((point) => ({ x: point.x + dx, y: point.y + dy })), viewport: { ...size },
+    })));
+  });
+  return next;
 }
 
 export function transformInkGroup(strokes: InkStroke[], groupId: string, from: { x: number; y: number; width: number; height: number }, to: { x: number; y: number; width: number; height: number }): InkStroke[] {

@@ -9,7 +9,9 @@ import { useRouter } from "next/navigation";
 import PdfViewer from "@/components/PdfViewer";
 import SignatureTools from "@/components/SignatureTools";
 import DocumentInkLayer, { imageOfInk } from "@/components/DocumentInkLayer";
-import { inkGroupId, rotateInkGroup, type InkStroke } from "@/lib/documentInk";
+import { inkGroupId, repeatInkGroup, rotateInkGroup, setInkGroupWidth, type InkStroke } from "@/lib/documentInk";
+import { PDFDocument } from "pdf-lib";
+import { pagePlacement } from "@/lib/pdfPlacement";
 import InkSelectionLayer from "@/components/InkSelectionLayer";
 import { scaleText } from "@/lib/textLayout";
 import { rememberTextMove, restoreTextMove, type MovableText } from "@/lib/textMoveHistory";
@@ -125,10 +127,37 @@ function SigningEditor() {
   };
   const [detectedFields, setDetectedFields] = useState<DetectedField[]>([]);
   const [selectedInk, setSelectedInk] = useState<string | null>(null);
+  const [placingInitials, setPlacingInitials] = useState(false);
+  const [repeatUndo, setRepeatUndo] = useState<{ before: InkStroke[]; after: InkStroke[] } | null>(null);
   const inkGroupRef = useRef<string | null>(null);
   const pageInkGroups = [...new Set(inkStrokes.filter((stroke) => stroke.page === page).map(inkGroupId))];
   const editableInkGroup = selectedInk && pageInkGroups.includes(selectedInk)
     ? selectedInk : null;
+  const selectedInkWidth = inkStrokes.find((stroke) => stroke.page === page && inkGroupId(stroke) === editableInkGroup)?.width ?? inkWidth;
+  const changeCompletedInkWidth = (width: number) => {
+    if (!editableInkGroup) return;
+    setInkStrokes((current) => setInkGroupWidth(current, editableInkGroup, page, width));
+    setRedoInk([]);
+  };
+  const placeInitialsOnAllPages = async () => {
+    if (!editableInkGroup || !file || placingInitials) return;
+    const before = inkStrokes;
+    setPlacingInitials(true);
+    setSaveInkMessage(null);
+    try {
+      const pdf = await PDFDocument.load(await file.arrayBuffer());
+      const pages = pdf.getPages().map((pdfPage) => {
+        const { width, height } = pagePlacement(pdfPage);
+        return { width, height };
+      });
+      const after = repeatInkGroup(before, editableInkGroup, page, pages);
+      setInkStrokes((current) => current === before ? after : current);
+      setRepeatUndo({ before, after });
+      setRedoInk([]);
+    } catch (error) {
+      setSaveInkMessage(error instanceof Error ? error.message : "Could not place initials on all pages. Please try again.");
+    } finally { setPlacingInitials(false); }
+  };
   const deleteDrawnSignature = () => {
     if (!editableInkGroup) return;
     setInkStrokes((current) => current.filter((stroke) => stroke.page !== page || inkGroupId(stroke) !== editableInkGroup));
@@ -409,6 +438,14 @@ function SigningEditor() {
           </div>
         </div>
         {activeTool === "select" && editableInkGroup && <div className="mt-2 flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-sm">{t("Line weight")}
+            <input type="range" min="0.25" max={Math.max(6, selectedInkWidth)} step="0.25" value={selectedInkWidth}
+              disabled={drawing || !pdfReady || placingInitials} aria-label={t("Completed signature line weight")}
+              onChange={(event) => changeCompletedInkWidth(Number(event.target.value))} className="w-28" />
+            <span className="min-w-12 tabular-nums">{Number(selectedInkWidth.toFixed(2))} pt</span>
+          </label>
+          <button type="button" onClick={() => void placeInitialsOnAllPages()} disabled={drawing || !pdfReady || placingInitials || numPages < 2}
+            className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">{placingInitials ? t("Placing initials…") : t("Place initials on all pages")}</button>
           <button type="button" onClick={() => rotateDrawnSignature(-ROTATION_STEP)} disabled={!editableInkGroup || drawing || !pdfReady}
             aria-label={t("Rotate signature left 15 degrees")} className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">{t("↶ Rotate left")}</button>
           <button type="button" onClick={() => rotateDrawnSignature(ROTATION_STEP)} disabled={!editableInkGroup || drawing || !pdfReady}
@@ -418,6 +455,10 @@ function SigningEditor() {
           <button type="button" onClick={() => void saveDocumentInk()} disabled={savingInk || drawing || !editableInkGroup || status === "loading"}
             className="min-h-10 rounded-md border border-foreground/30 px-3 py-2 text-sm disabled:opacity-50">{savingInk ? t("Saving…") : isSignedIn ? t("Save signature for next time") : t("Sign in to save signature")}</button>
           {saveInkMessage && <span role="status" className="text-xs text-foreground/70">{t(saveInkMessage)}</span>}
+        </div>}
+        {repeatUndo && inkStrokes === repeatUndo.after && <div className="mt-2 flex flex-wrap items-center gap-2 text-sm" role="status">
+          <span>{t("Initials placed on all pages.")}</span>
+          <button type="button" onClick={() => { setInkStrokes(repeatUndo.before); setRepeatUndo(null); setRedoInk([]); }} className="underline">{t("Undo placement on all pages")}</button>
         </div>}
         <p data-editor-help className="mt-2 text-xs text-foreground/60" role="status">{activeTool === "draw" ? t("Draw your signature. ShapeAssist is automatic. Tap Done signing, then move, resize or freely rotate your signature.") : activeTool === "select" ? t("Scroll or pinch to navigate. Choose Type to fill a field or add text.") : activeTool === "text" ? t("Tap a highlighted field to fill it, or tap anywhere to add text.") : t("Tap the document to add {tool}.", { tool: t(TOOL_LABELS[activeTool]).toLowerCase() })}</p>
       <section hidden={!signatureLibraryOpen} id="signature-library" aria-label={t("Saved signatures")} className="absolute inset-x-0 top-full z-50 mt-1 overflow-auto rounded-lg border border-foreground/15 bg-background p-3 shadow-lg" style={{ maxHeight: panelMaxHeight }}>

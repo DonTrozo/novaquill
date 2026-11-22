@@ -37,7 +37,7 @@ export function SigningUsageNotice({ state, compact = false }: { state: ReturnTy
   return <div className={compact ? "text-xs text-foreground/60" : "rounded-md border border-foreground/15 p-3 text-sm"} role="status">
     {checking ? t("Checking your document allowance…") : error ? <>
       {t(error)} <button type="button" onClick={() => void refresh()} className="underline">{t("Retry")}</button>
-    </> : usage?.subscription === "PRO" ? t("Pro · Unlimited signing") : <>
+    </> : usage?.owner ? t("Owner · Unlimited signing") : usage?.subscription === "PRO" ? t("Pro · Unlimited signing") : <>
       {t("{remaining} of {limit} free documents remaining this month.", { remaining: remaining ?? 0, limit: usage?.limit ?? 5 })}{!compact && t(" Previews do not use credits.")} {" "}
       {(!compact || remaining === 0) && <Link href="/pricing" className="font-medium underline">{t("Upgrade to Pro")}</Link>}
     </>}

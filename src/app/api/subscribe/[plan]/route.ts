@@ -6,6 +6,7 @@ import { checkoutReview } from "@/lib/checkoutReview";
 import { requestLocale } from "@/lib/requestLocale";
 import { eurToZar } from "@/lib/fx";
 import { prisma } from "@/lib/prisma";
+import { hasOwnerAccess } from "@/lib/subscriptionAccess";
 import {
   amountToCents,
   centsToAmountString,
@@ -33,6 +34,7 @@ export async function GET(
   }
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) return new Response("Unauthorized", { status: 401 });
+  if (hasOwnerAccess(user)) return new Response("Your account has complimentary owner access. No paid subscription is required.", { status: 409 });
   if (user.subscription === "PRO" && !user.subscriptionCancelledAt) return new Response("Manage or cancel your existing subscription in the dashboard before starting another recurring payment.", { status: 409 });
 
   const env: "sandbox" | "live" = (process.env.PAYFAST_ENV as "sandbox" | "live") === "live" ? "live" : "sandbox";

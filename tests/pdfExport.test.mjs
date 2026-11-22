@@ -287,3 +287,30 @@ test('twelve-page completed PDF retains visible content, filled forms and signat
     }
   } finally { rmSync(folder, { recursive: true, force: true }); }
 });
+
+test('lighter repeated initials export as vector strokes on all twelve pages, including rotated pages', async () => {
+  const { repeatInkGroup, setInkGroupWidth } = await import('../src/lib/documentInk.ts');
+  const { pagePlacement } = await import('../src/lib/pdfPlacement.ts');
+  const input = await PDFDocument.create();
+  for (let number = 1; number <= 12; number++) {
+    const page = input.addPage([600, 800]);
+    if (number % 2 === 0) page.setRotation(degrees(90));
+    page.drawText(`Original page ${number}`, { x: 50, y: 700 });
+  }
+  const pages = input.getPages().map(page => { const { width, height } = pagePlacement(page); return { width, height }; });
+  const strokes = [{ groupId: 'initials', page: 1, points: [{ x: 500, y: 750 }, { x: 530, y: 770 }], width: 4, color: '#111111', viewport: pages[0] }];
+  const inkStrokes = repeatInkGroup(setInkGroupWidth(strokes, 'initials', 1, 0.5), 'initials', 1, pages);
+  const out = await buildSignedPdf({ pdfBytes: await input.save(), sigDataUrl: null, page: 1, x: 0, y: 0, width: 200, signatureHeight: 80, rotation: 0, textElements: [], inkStrokes, pdfViewportSizes: {} });
+  const { getDocument, OPS } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const task = getDocument({ data: out.slice() });
+  try {
+    const preview = await task.promise;
+    assert.equal(preview.numPages, 12);
+    for (let page = 1; page <= 12; page++) {
+      const operators = await (await preview.getPage(page)).getOperatorList();
+      const widths = operators.argsArray.filter((_, index) => operators.fnArray[index] === OPS.setLineWidth).map(args => args[0]);
+      assert.ok(widths.includes(0.5), `page ${page} exports the chosen thin line weight`);
+      assert.ok(!widths.includes(4), `page ${page} does not export the original thick weight`);
+    }
+  } finally { await task.destroy(); }
+});

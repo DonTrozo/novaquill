@@ -26,7 +26,7 @@ export function pagePlacement(page: PDFPage, viewport?: ViewportSize | null) {
     if (angle === 270) return { x: box.x + box.width - v, y: box.y + box.height - u };
     return { x: box.x + u, y: box.y + box.height - v };
   };
-  return { point, sx, sy, angle };
+  return { point, sx, sy, angle, width: displayWidth, height: displayHeight };
 }
 
 export function signaturePlacement(page: PDFPage, viewport: ViewportSize | null | undefined,

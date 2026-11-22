@@ -82,3 +82,65 @@ test('manual rotation accepts precise fractional angles without snapping to pres
     assert.equal(rotated[0].width, 2);
   }
 });
+
+test('completed line weight edits every stroke of the selected drawing without changing its shape or other pages', async () => {
+  const { setInkGroupWidth } = await import('../src/lib/documentInk.ts');
+  const strokes = [
+    { groupId: 'initials', page: 1, points: [{ x: 500, y: 750 }, { x: 530, y: 770 }], width: 4, color: '#111111', viewport: { width: 600, height: 800 } },
+    { groupId: 'initials', page: 1, points: [{ x: 520, y: 750 }], width: 3, color: '#111111', viewport: { width: 600, height: 800 } },
+    { groupId: 'initials', page: 2, points: [{ x: 50, y: 60 }], width: 4, color: '#111111', viewport: { width: 600, height: 800 } },
+  ];
+  const before = structuredClone(strokes);
+  const next = setInkGroupWidth(strokes, 'initials', 1, 0.5);
+  assert.equal(next[0].width, 0.5); assert.equal(next[1].width, 0.5); assert.equal(next[2], strokes[2]);
+  assert.deepEqual(next[0].points, before[0].points); assert.deepEqual(next[1].points, before[1].points);
+  assert.deepEqual(strokes, before);
+  for (const width of [0, -1, NaN, Infinity]) assert.equal(setInkGroupWidth(strokes, 'initials', 1, width), strokes);
+});
+
+test('repeating multi-stroke initials places one independent copy on each of twelve pages and reapplying does not duplicate', async () => {
+  const { repeatInkGroup, inkGroupId } = await import('../src/lib/documentInk.ts');
+  const strokes = [
+    { groupId: 'initials', page: 3, points: [{ x: 500, y: 750 }, { x: 530, y: 770 }], width: 0.5, color: '#111111', viewport: { width: 600, height: 800 } },
+    { groupId: 'initials', page: 3, points: [{ x: 520, y: 750 }], width: 0.5, color: '#111111', viewport: { width: 600, height: 800 } },
+    { groupId: 'signature', page: 1, points: [{ x: 50, y: 60 }], width: 2, color: '#111111', viewport: { width: 600, height: 800 } },
+  ];
+  const before = structuredClone(strokes);
+  const pages = Array.from({ length: 12 }, () => ({ width: 600, height: 800 }));
+  const next = repeatInkGroup(strokes, 'initials', 3, pages);
+  assert.equal(next.length, 25);
+  const groupIds = new Set();
+  for (let page = 1; page <= 12; page++) {
+    const group = next.filter(stroke => stroke.page === page && stroke.repeatOf);
+    assert.equal(group.length, 2); groupIds.add(inkGroupId(group[0]));
+    assert.deepEqual(group[0].points, before[0].points); assert.equal(group[0].width, 0.5);
+  }
+  assert.equal(groupIds.size, 12); assert.equal(next.find(stroke => stroke.groupId === 'signature'), strokes[2]);
+  assert.deepEqual(strokes, before);
+  assert.equal(repeatInkGroup(next, 'initials', 3, pages).length, 25);
+  const copy = next.find(stroke => stroke.page === 8 && stroke.repeatOf);
+  assert.equal(repeatInkGroup(next, inkGroupId(copy), 8, pages).length, 25);
+});
+
+test('repeated initials retain physical size and bottom/right margins on differently sized and rotated page viewports', async () => {
+  const { repeatInkGroup } = await import('../src/lib/documentInk.ts');
+  const stroke = { groupId: 'initials', page: 1, points: [{ x: 500, y: 750 }, { x: 530, y: 770 }], width: 0.5, color: '#111111', viewport: { width: 600, height: 800 } };
+  const pages = [{ width: 600, height: 800 }, { width: 800, height: 600 }, { width: 500, height: 700 }];
+  const next = repeatInkGroup([stroke], 'initials', 1, pages);
+  assert.deepEqual(next[1].points, [{ x: 700, y: 550 }, { x: 730, y: 570 }]);
+  assert.deepEqual(next[2].points, [{ x: 400, y: 650 }, { x: 430, y: 670 }]);
+  next.forEach((copy, index) => { assert.equal(copy.width, 0.5); assert.deepEqual(copy.viewport, pages[index]); });
+  assert.throws(() => repeatInkGroup([stroke], 'initials', 1, [...pages, { width: 10, height: 10 }]), /Make these initials smaller/);
+});
+
+test('editing or moving one repeated copy leaves the other pages untouched', async () => {
+  const { repeatInkGroup, setInkGroupWidth, transformInkGroup, inkGroupId } = await import('../src/lib/documentInk.ts');
+  const source = { groupId: 'a', page: 1, points: [{ x: 50, y: 700 }, { x: 80, y: 720 }], width: 2, color: '#111111', viewport: { width: 600, height: 800 } };
+  const copies = repeatInkGroup([source], 'a', 1, [{ width: 600, height: 800 }, { width: 600, height: 800 }]);
+  const id = inkGroupId(copies[1]);
+  const thin = setInkGroupWidth(copies, id, 2, 0.25);
+  assert.equal(thin[0], copies[0]); assert.equal(thin[1].width, 0.25);
+  const bounds = inkBounds([thin[1]]);
+  const moved = transformInkGroup(thin, id, bounds, { ...bounds, x: bounds.x + 10 });
+  assert.equal(moved[0], copies[0]); assert.equal(moved[1].points[0].x, 60);
+});

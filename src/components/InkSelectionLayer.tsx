@@ -40,7 +40,7 @@ export default function InkSelectionLayer({ strokes, page, scale, size, onChange
   };
   return <div ref={surfaceRef} className="pointer-events-none absolute inset-0 z-25" onPointerMove={move} onPointerUp={() => setDrag(null)} onPointerCancel={() => setDrag(null)}>
     {groups.map((id) => {
-      const bounds = inkBounds(strokes.filter((stroke) => inkGroupId(stroke) === id));
+      const bounds = inkBounds(strokes.filter((stroke) => stroke.page === page && inkGroupId(stroke) === id));
       if (!bounds) return null;
       const isSelected = selected === id;
       return <div key={id} role="button" tabIndex={0} aria-label={t("Move completed signature")} className={`pointer-events-auto absolute cursor-move touch-none rounded ${isSelected ? "ring-2 ring-[color:var(--color-accent)]" : "hover:ring-1 hover:ring-[color:var(--color-accent)]"}`}

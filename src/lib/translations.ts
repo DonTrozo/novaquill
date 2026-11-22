@@ -1,5 +1,7 @@
 // Portuguese interface copy. Document contents and signature text are never translated.
 export const portuguese: Record<string, string> = {
+  "Owner": "Proprietário",
+  "Owner · Unlimited signing": "Proprietário · Assinaturas ilimitadas",
   "PDF loading timed out. Please retry.": "O carregamento do PDF demorou demasiado. Tente novamente.",
   "PDF rendering timed out. Please retry.": "A apresentação do PDF demorou demasiado. Tente novamente.",
   "I agree to the Terms of Service.": "Aceito os Termos de Serviço.",

@@ -1,4 +1,4 @@
-export type SigningUsage = { subscription: "FREE" | "PRO" | "ANON"; used: number; limit: number | null };
+export type SigningUsage = { subscription: "FREE" | "PRO" | "ANON"; owner?: boolean; used: number; limit: number | null };
 
 export async function getSigningUsage(): Promise<SigningUsage> {
   const response = await fetch("/api/usage", { cache: "no-store" });

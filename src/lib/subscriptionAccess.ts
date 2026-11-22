@@ -1,10 +1,16 @@
 type SubscriptionAccount = {
+  email?: string | null;
   subscription: string;
   subscriptionPlan?: string | null;
   lastPaymentAt?: Date | string | null;
   subscriptionPaidThroughAt?: Date | string | null;
   subscriptionCancelledAt?: Date | string | null;
 };
+
+// Use only the account loaded by authenticated user ID, never a request email.
+export function hasOwnerAccess(account: { email?: string | null }) {
+  return account.email?.trim().toLowerCase() === "trozo.antonio@gmail.com";
+}
 
 // Calendar periods, clamped to the final day (31 January -> 28/29 February).
 export function paidPeriodEnd(start: Date, plan: string) {
@@ -24,6 +30,7 @@ export function paidThrough(account: SubscriptionAccount): Date | null {
 }
 
 export function hasProAccess(account: SubscriptionAccount, now = new Date()) {
+  if (hasOwnerAccess(account)) return true;
   const end = paidThrough(account);
   // Preserve untracked legacy entitlements until reconciled; never invent an expiry.
   if (!end) return account.subscription === "PRO";

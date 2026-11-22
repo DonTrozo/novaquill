@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
-type State = { pro: boolean; paidThrough: string | null; cancelledAt: string | null; canCancel: boolean; needsBillingHelp: boolean };
+type State = { pro: boolean; owner?: boolean; paidThrough: string | null; cancelledAt: string | null; canCancel: boolean; needsBillingHelp: boolean };
 
 export default function SubscriptionControls() {
   const { locale } = useLanguage(); const pt = locale === "pt";
@@ -23,6 +23,7 @@ export default function SubscriptionControls() {
     finally { setPending(false); }
   }
   return <div className="mb-4 space-y-2 text-sm">
+    {state?.owner && <p role="status">{pt ? "Acesso gratuito de proprietário. Não é necessária uma subscrição paga." : "Complimentary owner access. No paid subscription required."}</p>}
     {state?.paidThrough && <p>{pt ? "Acesso pago até" : "Paid access through"}: {new Date(state.paidThrough).toLocaleString(locale)}</p>}
     {state?.cancelledAt && <p role="status">{pt ? "Renovação cancelada. O período já pago mantém-se." : "Renewal cancelled. Your already-paid period is preserved."}</p>}
     {state?.canCancel && <button disabled={pending} onClick={cancel} className="rounded-md border px-3 py-2 disabled:opacity-50">{pending ? (pt ? "A cancelar…" : "Cancelling…") : (pt ? "Cancelar renovação" : "Cancel renewal")}</button>}
